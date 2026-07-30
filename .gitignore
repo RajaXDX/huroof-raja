@@ -1,0 +1,13 @@
+# نظام التشغيل
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# المحررات
+.vscode/
+.idea/
+*.swp
+
+# مؤقتات
+*.log
+*.tmp
