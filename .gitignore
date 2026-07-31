@@ -11,3 +11,8 @@ desktop.ini
 # مؤقتات
 *.log
 *.tmp
+
+# ملفات منزّلة يعيد السكربت جلبها — لا تُحفظ في المستودع
+.build/
+node_modules/
+ios/App/Pods/

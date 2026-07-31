@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Almarai:wght@300;400;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #0A0A10; }
+  * { box-sizing: border-box; }
+  a { color: var(--accent, #7DD3FC); text-decoration: none; }
+  a:hover { color: var(--accentLite, #BAE6FD); }
+  input { font-family: inherit; }
+  @keyframes popIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+  @keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,.16); } 50% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } }
+</style>
+</helmet>
+<div dir="rtl" style="{{ rootStyle }}">
+
+  <div style="height: 10px; background: repeating-linear-gradient(135deg, var(--accent) 0 6px, var(--line) 6px 12px, var(--t1) 12px 18px, var(--line) 18px 24px); opacity: .8"></div>
+
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 32px; border-bottom: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(6px)">
+    <div style="display: flex; align-items: center; gap: 14px">
+      <div style="width: 44px; height: 50px; clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); background: linear-gradient(160deg, var(--accentLite), var(--accentDeep)); display: flex; align-items: center; justify-content: center; color: var(--onAccent); font-weight: 900; font-size: 22px">ح</div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <div style="font-weight: 900; font-size: 19px; letter-spacing: .5px; color: var(--head)">حروف مع رجا</div>
+        <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--muted)">خلية الحروف</div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--panelSolid); border: 1px solid var(--line)">
+      <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="3">
+        <button onClick="{{ tab.onClick }}" style="border: 0; cursor: pointer; font-family: Cairo, sans-serif; font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 999px; background: {{ tab.bg }}; color: {{ tab.fg }}; transition: background .16s ease, color .16s ease" style-hover="filter: brightness(1.12)">{{ tab.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width: 940px; margin: 0 auto; padding: 84px 28px 0; display: flex; flex-direction: column; align-items: center; text-align: center">
+      <div style="display: flex; gap: 8px; margin-bottom: 34px">
+        <div style="width: 40px; height: 46px; clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); background: var(--t1)"></div>
+        <div style="width: 40px; height: 46px; clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); background: var(--cell); margin-top: 22px"></div>
+        <div style="width: 40px; height: 46px; clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); background: var(--t2)"></div>
+      </div>
+      <h1 style="margin: 0; font-size: 64px; font-weight: 900; line-height: 1.1; background: linear-gradient(180deg, var(--head), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent">حروف مع رجا</h1>
+      <p style="margin: 16px 0 44px; font-family: Almarai, sans-serif; font-size: 18px; color: var(--muted); max-width: 460px; text-wrap: pretty">صِل حروفك من طرف إلى طرف قبل خصمك — أربع جولات من الذكاء والسرعة.</p>
+
+      <div style="display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 420px">
+        <button onClick="{{ goSetup }}" style="border: 0; cursor: pointer; font-family: Cairo, sans-serif; font-weight: 900; font-size: 19px; padding: 20px; border-radius: 18px; color: var(--onAccent); background: linear-gradient(165deg, var(--accentLite), var(--accent) 55%, var(--accentDeep)); box-shadow: 0 16px 34px -16px var(--accentGlow); transition: transform .16s ease" style-hover="transform: translateY(-2px)">لعبة جديدة</button>
+        <button onClick="{{ goGame }}" style="cursor: pointer; font-family: Cairo, sans-serif; font-weight: 700; font-size: 17px; padding: 18px; border-radius: 18px; color: var(--text); background: var(--panelSolid); border: 1px solid var(--line); transition: border-color .16s ease" style-hover="border-color: var(--lineStrong)">دخول اللوحة مباشرة</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; max-width: 560px; margin-top: 46px">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+          <div style="padding: 20px 14px; border-radius: 18px; background: linear-gradient(180deg, var(--s1), var(--s2)); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; align-items: center">
+            <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--muted)">{{ s.label }}</div>
+            <div style="font-size: 26px; font-weight: 900; color: var(--accent)">{{ s.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="margin-top: 40px; font-family: Almarai, sans-serif; font-size: 13px; color: var(--faint)">فريقان · لوحة سداسية · أسئلة عربية</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isSetup }}">
+    <div style="max-width: 1040px; margin: 0 auto; padding: 40px 28px 0">
+      <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 26px">
+        <h2 style="margin: 0; font-size: 30px; font-weight: 900; color: var(--head)">إعدادات المباراة</h2>
+        <span style="font-family: Almarai, sans-serif; font-size: 13px; color: var(--muted)">اضبط الألوان والفريقين واللوحة قبل البدء</span>
+      </div>
+
+      <div style="padding: 22px; border-radius: 20px; background: linear-gradient(180deg, var(--s1), var(--s2)); border: 1px solid var(--line); margin-bottom: 18px">
+        <div style="font-weight: 800; font-size: 16px; color: var(--accent); padding-bottom: 14px; border-bottom: 1px solid var(--line); margin-bottom: 18px">لون الواجهة</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 12px">
+          <sc-for list="{{ palettes }}" as="p" hint-placeholder-count="5">
+            <button onClick="{{ p.onClick }}" style="cursor: pointer; text-align: right; padding: 14px; border-radius: 16px; background: {{ p.preview }}; border: 2px solid {{ p.ring }}; display: flex; flex-direction: column; gap: 10px; transition: transform .14s ease" style-hover="transform: translateY(-2px)">
+              <div style="font-family: Cairo, sans-serif; font-weight: 800; font-size: 14px; color: {{ p.labelColor }}">{{ p.label }}</div>
+              <div style="display: flex; gap: 6px">
+                <div style="width: 22px; height: 22px; border-radius: 6px; background: {{ p.c1 }}"></div>
+                <div style="width: 22px; height: 22px; border-radius: 6px; background: {{ p.c2 }}"></div>
+                <div style="width: 22px; height: 22px; border-radius: 6px; background: {{ p.c3 }}"></div>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 300px; gap: 18px; align-items: start">
+        <div style="padding: 22px; border-radius: 20px; background: linear-gradient(180deg, var(--s1), var(--s2)); border: 1px solid var(--line)">
+          <div style="font-weight: 800; font-size: 16px; color: var(--accent); padding-bottom: 14px; border-bottom: 1px solid var(--line); margin-bottom: 18px">الفريقان</div>
+          <div style="display: flex; flex-direction: column; gap: 22px">
+            <sc-for list="{{ teams }}" as="t" hint-placeholder-count="2">
+              <div style="display: flex; flex-direction: column; gap: 10px">
+                <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--muted)">{{ t.caption }}</div>
+                <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--inputBg); border: 1px solid {{ t.color }}">
+                  <div style="width: 10px; height: 10px; border-radius: 3px; background: {{ t.color }}"></div>
+                  <input value="{{ t.name }}" onChange="{{ t.onName }}" style="flex: 1; border: 0; outline: none; background: transparent; color: var(--text); font-weight: 700; font-size: 16px" />
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                  <sc-for list="{{ t.swatches }}" as="sw" hint-placeholder-count="7">
+                    <button onClick="{{ sw.onClick }}" style="width: 34px; height: 34px; border-radius: 50%; cursor: pointer; background: {{ sw.color }}; border: 2px solid {{ sw.ring }}; transition: transform .14s ease" style-hover="transform: scale(1.08)"></button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding: 22px; border-radius: 20px; background: linear-gradient(180deg, var(--s1), var(--s2)); border: 1px solid var(--line)">
+          <div style="font-weight: 800; font-size: 16px; color: var(--accent); padding-bottom: 14px; border-bottom: 1px solid var(--line); margin-bottom: 18px">معاينة اللوحة</div>
+          <div style="display: flex; justify-content: center; padding: 10px 0 6px">
+            <div style="display: flex; flex-direction: column; align-items: center">
+              <sc-for list="{{ previewRows }}" as="row" hint-placeholder-count="4">
+                <div style="display: flex; gap: 4px; margin-top: -8px; margin-right: {{ row.offset }}px">
+                  <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="4">
+                    <div style="width: 30px; height: 34px; clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); background: {{ c.bg }}"></div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--muted); text-align: center; margin-top: 16px">{{ previewCaption }}</div>
+        </div>
+      </div>
+
+      <div style="display: grid; gap: 14px; margin-top: 18px">
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+          <div style="padding: 18px 22px; border-radius: 18px; background: var(--panelSolid); border: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap">
+            <div style="display: flex; flex-direction: column; gap: 3px">
+              <div style="font-weight: 800; font-size: 15px; color: var(--head)">{{ g.title }}</div>
+              <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--faint)">{{ g.hint }}</div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap">
+              <sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="4">
+                <button onClick="{{ o.onClick }}" style="cursor: pointer; font-family: Cairo, sans-serif; font-weight: 700; font-size: 13px; padding: 11px 16px; border-radius: 12px; border: 1px solid {{ o.border }}; background: {{ o.bg }}; color: {{ o.fg }}; transition: filter .14s ease" style-hover="filter: brightness(1.12)">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+
+        <sc-for list="{{ switches }}" as="sw" hint-placeholder-count="2">
+          <div style="padding: 18px 22px; border-radius: 18px; background: var(--panelSolid); border: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 20px">
+            <div style="display: flex; flex-direction: column; gap: 3px">
+              <div style="font-weight: 800; font-size: 15px; color: var(--head)">{{ sw.title }}</div>
+              <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--faint)">{{ sw.hint }}</div>
+            </div>
+            <button onClick="{{ sw.onClick }}" style="cursor: pointer; width: 54px; height: 30px; border-radius: 999px; border: 1px solid var(--line); background: {{ sw.track }}; display: flex; align-items: center; padding: 3px; justify-content: {{ sw.justify }}; transition: background .18s ease">
+              <div style="width: 22px; height: 22px; border-radius: 50%; background: {{ sw.knob }}"></div>
+            </button>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px">
+        <button onClick="{{ goHome }}" style="cursor: pointer; font-family: Cairo, sans-serif; font-weight: 700; font-size: 15px; padding: 15px 26px; border-radius: 14px; color: var(--muted); background: transparent; border: 1px solid var(--line)" style-hover="border-color: var(--lineStrong)">رجوع</button>
+        <button onClick="{{ startMatch }}" style="border: 0; cursor: pointer; font-family: Cairo, sans-serif; font-weight: 900; font-size: 16px; padding: 15px 40px; border-radius: 14px; color: var(--onAccent); background: linear-gradient(165deg, var(--accentLite), var(--accent) 55%, var(--accentDeep)); box-shadow: 0 14px 30px -16px var(--accentGlow)" style-hover="filter: brightness(1.06)">ابدأ المباراة</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isGame }}">
+    <div style="max-width: 1080px; margin: 0 auto; padding: 26px 24px 0">
+      <div style="display: grid; grid-template-columns: 1fr 160px 1fr; gap: 14px; align-items: stretch">
+        <sc-for list="{{ scoreCards }}" as="sc" hint-placeholder-count="2">
+          <div style="grid-column: {{ sc.col }}; padding: 16px 20px; border-radius: 18px; background: {{ sc.bg }}; border: 2px solid {{ sc.border }}; display: flex; flex-direction: column; gap: 6px; align-items: {{ sc.align }}">
+            <div style="font-weight: 800; font-size: 16px; color: var(--head)">{{ sc.name }}</div>
+            <div style="display: flex; align-items: baseline; gap: 10px">
+              <div style="font-size: 30px; font-weight: 900; color: {{ sc.color }}">{{ sc.score }}</div>
+              <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--muted)">{{ sc.dir }}</div>
+            </div>
+          </div>
+        </sc-for>
+        <div style="grid-column: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px">
+          <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--muted)">{{ roundLabel }}</div>
+          <button onClick="{{ resetBoard }}" style="cursor: pointer; font-family: Cairo, sans-serif; font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 999px; color: var(--text); background: var(--panelSolid); border: 1px solid var(--line)" style-hover="border-color: var(--lineStrong)">جولة جديدة</button>
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 14px 22px; border-radius: 14px; background: {{ turnBg }}; color: {{ turnFg }}; font-weight: 800; font-size: 16px; text-align: center; animation: glow 2.4s ease-in-out infinite">{{ turnLabel }}</div>
+
+      <div style="display: flex; justify-content: center; margin-top: 30px">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="width: 10px; border-radius: 6px; background: var(--t2); align-self: stretch"></div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
+            <div style="height: 10px; border-radius: 6px; background: var(--t1); width: 100%"></div>
+            <div style="display: flex; flex-direction: column; align-items: center">
+              <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
+                <div style="display: flex; gap: 6px; margin-top: {{ row.mt }}px; margin-right: {{ row.offset }}px">
+                  <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4">
+                    <div onClick="{{ cell.onClick }}" style="width: {{ hexW }}px; height: {{ hexH }}px; clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); display: flex; align-items: center; justify-content: center; cursor: pointer; background: {{ cell.bg }}; color: {{ cell.fg }}; font-size: {{ hexFs }}px; font-weight: 900; transition: filter .14s ease" style-hover="filter: brightness(1.08)">{{ cell.letter }}</div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <div style="height: 10px; border-radius: 6px; background: var(--t1); width: 100%"></div>
+          </div>
+          <div style="width: 10px; border-radius: 6px; background: var(--t2); align-self: stretch"></div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 26px; margin-top: 28px; font-family: Almarai, sans-serif; font-size: 12px; color: var(--faint)">
+        <div>عمودي ↕ للفريق الأول</div>
+        <div>أفقي ↔ للفريق الثاني</div>
+        <div>{{ remainingLabel }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasActive }}">
+    <div style="position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 40">
+      <div style="width: 100%; max-width: 520px; border-radius: 24px; padding: 30px; background: linear-gradient(180deg, var(--s1), var(--s2)); border: 1px solid var(--lineStrong); box-shadow: 0 40px 80px -30px rgba(0,0,0,.9); animation: popIn .22s ease both">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+          <div style="display: flex; align-items: center; gap: 14px">
+            <div style="width: 52px; height: 60px; clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); background: var(--cell); color: var(--cellText); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 900">{{ activeLetter }}</div>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <div style="font-family: Almarai, sans-serif; font-size: 12px; color: var(--muted)">دور</div>
+              <div style="font-weight: 800; font-size: 16px; color: {{ turnColor }}">{{ turnName }}</div>
+            </div>
+          </div>
+          <sc-if value="{{ showTimer }}">
+            <div style="width: 58px; height: 58px; border-radius: 50%; border: 3px solid var(--lineStrong); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 19px; color: var(--accent)">{{ timeLeft }}</div>
+          </sc-if>
+        </div>
+        <div style="margin-top: 24px; font-size: 21px; font-weight: 700; line-height: 1.6; color: var(--text); text-wrap: pretty">{{ activeQuestion }}</div>
+        <div style="margin-top: 10px; font-family: Almarai, sans-serif; font-size: 13px; color: var(--muted)">الإجابة تبدأ بحرف {{ activeLetter }}</div>
+        <div style="display: flex; gap: 12px; margin-top: 26px">
+          <button onClick="{{ onCorrect }}" style="flex: 1; border: 0; cursor: pointer; font-family: Cairo, sans-serif; font-weight: 800; font-size: 15px; padding: 15px; border-radius: 14px; color: var(--onAccent); background: var(--t1)" style-hover="filter: brightness(1.08)">إجابة صحيحة</button>
+          <button onClick="{{ onWrong }}" style="flex: 1; cursor: pointer; font-family: Cairo, sans-serif; font-weight: 800; font-size: 15px; padding: 15px; border-radius: 14px; color: var(--text); background: var(--panelSolid); border: 1px solid var(--t2)" style-hover="filter: brightness(1.15)">إجابة خاطئة</button>
+        </div>
+        <button onClick="{{ onClose }}" style="width: 100%; margin-top: 10px; cursor: pointer; border: 0; background: transparent; font-family: Almarai, sans-serif; font-size: 13px; color: var(--faint); padding: 8px">إلغاء</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;palette&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;neon&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;ocean&quot;,&quot;night&quot;,&quot;clay&quot;,&quot;berry&quot;,&quot;neon&quot;,&quot;emerald&quot;],&quot;section&quot;:&quot;الهوية&quot;},&quot;gridSize&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:4,&quot;tsType&quot;:&quot;number&quot;,&quot;options&quot;:[4,5,6,7],&quot;section&quot;:&quot;اللعب&quot;},&quot;showTimer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;اللعب&quot;}}">
+const ALPHA = ["ا","ب","ت","ث","ج","ح","خ","د","ذ","ر","ز","س","ش","ص","ض","ط","ظ","ع","غ","ف","ق","ك","ل","م","ن","ه","و","ي"];
+const QUESTIONS = {
+  "ا": "عاصمة الأردن؟", "ب": "أكبر دولة في أمريكا الجنوبية؟", "ت": "فاكهة صيفية حمراء اللون؟",
+  "ث": "حيوان صحراوي ماكر؟", "ج": "سفينة الصحراء؟", "ح": "خامس أشهر السنة الهجرية؟",
+  "خ": "معدن يُصنع منه الخاتم؟", "د": "عاصمة سوريا؟", "ذ": "حيوان يشبه الكلب ويعوي؟",
+  "ر": "شهر الصيام؟", "ز": "سائل يُستخرج من الزيتون؟", "س": "أسرع الطيور في الغطس؟",
+  "ش": "كوكب المجموعة الشمسية الأكبر؟", "ص": "طائر لا يطير سريع العدو؟", "ض": "ما يقابل النور؟",
+  "ط": "أداة يُقاس بها الحرارة؟", "ظ": "ما يظهر عند حجب الضوء؟", "ع": "عاصمة الأردن القديمة؟",
+  "غ": "ما يسقط منه المطر؟", "ف": "لون الياسمين؟", "ق": "عاصمة مصر؟",
+  "ك": "أصغر دولة خليجية مساحة؟", "ل": "حلوى شعبية شرقية؟", "م": "عاصمة المغرب؟",
+  "ن": "نهر يمر بمصر؟", "ه": "غاز أخف من الهواء؟", "و": "عاصمة أمريكا؟", "ي": "بلد عربي جنوب السعودية؟"
+};
+
+const THEMES = {
+  ocean: {
+    label: "أزرق محيطي", bg: ["#123A55", "#0A2438", "#05121D"],
+    s1: "rgba(18,58,85,.92)", s2: "rgba(10,36,56,.92)", panel: "rgba(7,26,40,.62)", panelSolid: "rgba(12,42,64,.9)",
+    inputBg: "rgba(4,18,29,.85)", line: "rgba(125,211,252,.18)", lineStrong: "rgba(125,211,252,.5)",
+    accent: "#4FB8E8", accentLite: "#8FDCF7", accentDeep: "#2A87B8", accentGlow: "rgba(79,184,232,.65)", onAccent: "#05121D",
+    text: "#E7F3FA", head: "#F3FAFE", muted: "#9CBACC", faint: "#6E8A9C",
+    cell: "#EAF4FA", cellText: "#123A55", lock: "#27404F", lockText: "#6E8A9C", overlay: "rgba(3,12,20,.78)",
+    teams: ["#22D3AE", "#FB7185"], swatches: ["#22D3AE","#FB7185","#4FB8E8","#F5C662","#A78BFA","#7DD3C0","#F98A5B","#E2E8F0"]
+  },
+  night: {
+    label: "ليلي بنفسجي", bg: ["#2A1F52", "#170F33", "#0B0718"],
+    s1: "rgba(42,31,82,.92)", s2: "rgba(23,15,51,.92)", panel: "rgba(15,10,33,.62)", panelSolid: "rgba(33,23,64,.9)",
+    inputBg: "rgba(11,7,24,.85)", line: "rgba(183,156,247,.2)", lineStrong: "rgba(183,156,247,.52)",
+    accent: "#A78BFA", accentLite: "#CFBCFF", accentDeep: "#7C5CD6", accentGlow: "rgba(167,139,250,.6)", onAccent: "#120A26",
+    text: "#EFEAFB", head: "#F8F5FF", muted: "#B0A3CE", faint: "#7F739E",
+    cell: "#F1ECFC", cellText: "#2A1F52", lock: "#332A4D", lockText: "#7F739E", overlay: "rgba(8,5,18,.8)",
+    teams: ["#5EEAD4", "#FDBA74"], swatches: ["#5EEAD4","#FDBA74","#A78BFA","#F472B6","#7DD3FC","#BEF264","#FCD34D","#E5E1F2"]
+  },
+  clay: {
+    label: "رملي دافئ", bg: ["#3A241B", "#241510", "#130A08"],
+    s1: "rgba(58,36,27,.92)", s2: "rgba(36,21,16,.92)", panel: "rgba(25,14,10,.62)", panelSolid: "rgba(50,31,23,.9)",
+    inputBg: "rgba(19,10,8,.85)", line: "rgba(239,169,107,.2)", lineStrong: "rgba(239,169,107,.52)",
+    accent: "#EFA96B", accentLite: "#FFCB99", accentDeep: "#C97D45", accentGlow: "rgba(239,169,107,.6)", onAccent: "#22120C",
+    text: "#F7ECE1", head: "#FDF6EE", muted: "#C0A895", faint: "#96806F",
+    cell: "#F6E7D5", cellText: "#3A241B", lock: "#41302A", lockText: "#96806F", overlay: "rgba(14,8,6,.8)",
+    teams: ["#4FB8A0", "#E05C5C"], swatches: ["#4FB8A0","#E05C5C","#EFA96B","#8FB56B","#6E9BC7","#D07BB0","#E8CE7A","#DCC9B4"]
+  },
+  berry: {
+    label: "عنابي ملكي", bg: ["#4A1130", "#2C0A1E", "#15040E"],
+    s1: "rgba(74,17,48,.92)", s2: "rgba(44,10,30,.92)", panel: "rgba(30,6,20,.62)", panelSolid: "rgba(64,14,42,.9)",
+    inputBg: "rgba(21,4,14,.85)", line: "rgba(255,143,168,.2)", lineStrong: "rgba(255,143,168,.52)",
+    accent: "#FF8FA8", accentLite: "#FFC0CD", accentDeep: "#D95A7A", accentGlow: "rgba(255,143,168,.6)", onAccent: "#26060F",
+    text: "#FBEAF0", head: "#FFF4F7", muted: "#CFA5B4", faint: "#A17B89",
+    cell: "#FAE9EE", cellText: "#4A1130", lock: "#452433", lockText: "#A17B89", overlay: "rgba(15,4,10,.8)",
+    teams: ["#5ED3C0", "#FFB454"], swatches: ["#5ED3C0","#FFB454","#FF8FA8","#B79CF7","#7DB8E8","#9FD86B","#F2E6CD","#EFC7D4"]
+  },
+  neon: {
+    label: "فحمي نيون", bg: ["#22293A", "#141926", "#080B12"],
+    s1: "rgba(34,41,58,.92)", s2: "rgba(20,25,38,.92)", panel: "rgba(12,16,26,.62)", panelSolid: "rgba(28,35,50,.9)",
+    inputBg: "rgba(8,11,18,.85)", line: "rgba(134,239,172,.18)", lineStrong: "rgba(134,239,172,.5)",
+    accent: "#86EFAC", accentLite: "#BBF7D0", accentDeep: "#3FBF7F", accentGlow: "rgba(134,239,172,.55)", onAccent: "#08150E",
+    text: "#E8EEF6", head: "#F6FAFF", muted: "#9FAFC4", faint: "#73849B",
+    cell: "#ECF2F8", cellText: "#22293A", lock: "#2E3648", lockText: "#73849B", overlay: "rgba(5,8,13,.8)",
+    teams: ["#38BDF8", "#F472B6"], swatches: ["#38BDF8","#F472B6","#86EFAC","#FDE047","#C084FC","#FB923C","#5EEAD4","#E2E8F0"]
+  },
+  emerald: {
+    label: "أخضر وذهبي", bg: ["#16382F", "#0A231E", "#05130F"],
+    s1: "rgba(19,54,47,.92)", s2: "rgba(11,36,31,.92)", panel: "rgba(6,26,22,.62)", panelSolid: "rgba(14,42,36,.9)",
+    inputBg: "rgba(6,24,20,.85)", line: "rgba(232,185,63,.16)", lineStrong: "rgba(232,185,63,.5)",
+    accent: "#E8B93F", accentLite: "#F7D877", accentDeep: "#C9962A", accentGlow: "rgba(232,185,63,.65)", onAccent: "#0A231E",
+    text: "#EAF3EF", head: "#F2E6CD", muted: "#8FAAA2", faint: "#6E8A82",
+    cell: "#F2E6CD", cellText: "#14332E", lock: "#2A3B37", lockText: "#6E8A82", overlay: "rgba(3,14,11,.78)",
+    teams: ["#3FC2A3", "#E8763F"], swatches: ["#3FC2A3","#E8763F","#E8B93F","#6EA8E8","#C77DD8","#E86A8A","#8FCF5A","#D9CFC0"]
+  }
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      screen: "home",
+      palette: props.palette || "neon",
+      size: props.gridSize || 4,
+      turn: 1,
+      owners: {},
+      active: null,
+      timeLeft: 15,
+      names: { 1: "الفريق الأول", 2: "الفريق الثاني" },
+      colors: { 1: null, 2: null },
+      rounds: 1,
+      time: 15,
+      wrong: "lock",
+      toggles: { flip: true, sound: true }
+    };
+  }
+
+  componentWillUnmount() { clearInterval(this._t); }
+
+  tick() {
+    clearInterval(this._t);
+    if (!(this.props.showTimer ?? true)) return;
+    this._t = setInterval(() => this.setState(s => (
+      s.timeLeft <= 1 ? (clearInterval(this._t), { timeLeft: 0 }) : { timeLeft: s.timeLeft - 1 }
+    )), 1000);
+  }
+
+  open(i) {
+    if (this.state.owners[i]) return;
+    this.setState({ active: i, timeLeft: this.state.time || 15 });
+    this.tick();
+  }
+
+  resolve(ok) {
+    const i = this.state.active;
+    clearInterval(this._t);
+    this.setState(s => ({
+      owners: { ...s.owners, [i]: ok ? s.turn : (s.wrong === "lock" ? "x" : (s.turn === 1 ? 2 : 1)) },
+      turn: s.turn === 1 ? 2 : 1,
+      active: null
+    }));
+  }
+
+  set(key, val) { this.setState({ [key]: val }); }
+
+  renderVals() {
+    const st = this.state;
+    const key = (this.props.palette && this.props.palette !== this._lastProp) ? this.props.palette : st.palette;
+    this._lastProp = this.props.palette;
+    const T = THEMES[key] || THEMES.ocean;
+    const accent = T.accent;
+    const size = st.size;
+    const t1 = st.colors[1] || T.teams[0];
+    const t2 = st.colors[2] || T.teams[1];
+
+    const rootStyle = {
+      minHeight: "100vh", fontFamily: "Cairo, system-ui, sans-serif", color: T.text, paddingBottom: 64,
+      background: "radial-gradient(120% 80% at 50% 0%, " + T.bg[0] + " 0%, " + T.bg[1] + " 48%, " + T.bg[2] + " 100%)",
+      "--accent": accent, "--accentLite": T.accentLite, "--accentDeep": T.accentDeep, "--accentGlow": T.accentGlow,
+      "--onAccent": T.onAccent, "--text": T.text, "--head": T.head, "--muted": T.muted, "--faint": T.faint,
+      "--line": T.line, "--lineStrong": T.lineStrong, "--panel": T.panel, "--panelSolid": T.panelSolid,
+      "--s1": T.s1, "--s2": T.s2, "--inputBg": T.inputBg, "--cell": T.cell, "--cellText": T.cellText,
+      "--t1": t1, "--t2": t2, "--overlay": T.overlay
+    };
+
+    const hexW = size >= 7 ? 72 : size === 6 ? 82 : size === 5 ? 94 : 106;
+    const hexH = Math.round(hexW * 1.14);
+
+    const cells = [];
+    for (let i = 0; i < size * size; i++) {
+      const owner = st.owners[i];
+      cells.push({
+        letter: ALPHA[i % ALPHA.length],
+        bg: owner === 1 ? t1 : owner === 2 ? t2 : owner === "x" ? T.lock : T.cell,
+        fg: owner === "x" ? T.lockText : owner ? T.onAccent : T.cellText,
+        onClick: () => this.open(i)
+      });
+    }
+    const rows = [];
+    for (let r = 0; r < size; r++) {
+      rows.push({
+        cells: cells.slice(r * size, r * size + size),
+        offset: (r % 2) * Math.round((hexW + 6) / 2),
+        mt: r === 0 ? 0 : -Math.round(hexH / 4)
+      });
+    }
+
+    const previewRows = [0, 1, 2, 3].map(r => ({
+      offset: (r % 2) * 17,
+      cells: [0, 1, 2, 3].map(c => ({
+        bg: (r + c) % 3 === 0 ? t1 : (r + c) % 3 === 1 ? t2 : T.cell
+      }))
+    }));
+
+    const palettes = Object.keys(THEMES).map(k => {
+      const P = THEMES[k];
+      return {
+        label: P.label,
+        preview: "linear-gradient(160deg, " + P.bg[0] + ", " + P.bg[2] + ")",
+        ring: k === key ? P.accent : "rgba(255,255,255,.08)",
+        labelColor: P.head,
+        c1: P.accent, c2: P.teams[0], c3: P.teams[1],
+        onClick: () => this.setState({ palette: k, colors: { 1: null, 2: null } })
+      };
+    });
+
+    const mkTab = (k, label) => ({
+      label,
+      onClick: () => this.set("screen", k),
+      bg: st.screen === k ? accent : "transparent",
+      fg: st.screen === k ? T.onAccent : T.muted
+    });
+
+    const mkTeam = (n, caption) => ({
+      caption,
+      name: st.names[n],
+      color: n === 1 ? t1 : t2,
+      onName: e => this.setState(s => ({ names: { ...s.names, [n]: e.target.value } })),
+      swatches: T.swatches.map(c => ({
+        color: c,
+        ring: (n === 1 ? t1 : t2) === c ? T.head : "transparent",
+        onClick: () => this.setState(s => ({ colors: { ...s.colors, [n]: c } }))
+      }))
+    });
+
+    const mkGroup = (k, title, hint, opts) => ({
+      title, hint,
+      opts: opts.map(o => ({
+        label: o.label,
+        onClick: () => this.set(k, o.v),
+        bg: st[k] === o.v ? accent : T.inputBg,
+        fg: st[k] === o.v ? T.onAccent : T.text,
+        border: st[k] === o.v ? accent : T.line
+      }))
+    });
+
+    const mkSwitch = (k, title, hint) => {
+      const on = st.toggles[k];
+      return {
+        title, hint,
+        track: on ? accent : T.inputBg,
+        knob: on ? T.onAccent : T.faint,
+        justify: on ? "flex-start" : "flex-end",
+        onClick: () => this.setState(s => ({ toggles: { ...s.toggles, [k]: !s.toggles[k] } }))
+      };
+    };
+
+    const owned = Object.values(st.owners);
+    const score = n => owned.filter(v => v === n).length;
+    const mkScore = (n, col, align, dir) => ({
+      col, align, dir,
+      name: st.names[n],
+      score: score(n),
+      color: n === 1 ? t1 : t2,
+      bg: st.turn === n ? T.s1 : T.panelSolid,
+      border: st.turn === n ? (n === 1 ? t1 : t2) : T.line
+    });
+
+    const active = st.active;
+    const activeLetter = active == null ? "" : ALPHA[active % ALPHA.length];
+
+    return {
+      rootStyle,
+      palettes,
+      isHome: st.screen === "home",
+      isSetup: st.screen === "setup",
+      isGame: st.screen === "game",
+      goHome: () => this.set("screen", "home"),
+      goSetup: () => this.set("screen", "setup"),
+      goGame: () => this.set("screen", "game"),
+      startMatch: () => this.setState({ screen: "game", owners: {}, turn: 1 }),
+      resetBoard: () => this.setState({ owners: {}, turn: 1 }),
+      tabs: [mkTab("home", "الرئيسية"), mkTab("setup", "الإعدادات"), mkTab("game", "اللوحة")],
+      stats: [
+        { label: "الفرق", value: "فريقان" },
+        { label: "الأسئلة", value: "٢٨٠" },
+        { label: "الحروف", value: "٢٨" }
+      ],
+      teams: [mkTeam(1, "اسم الفريق الأول"), mkTeam(2, "اسم الفريق الثاني")],
+      previewRows,
+      previewCaption: size + "×" + size + " — " + (size * size) + " خلية",
+      groups: [
+        mkGroup("size", "حجم اللوحة", "عدد الخلايا في كل صف", [
+          { v: 4, label: "٤×٤ — صغيرة" }, { v: 5, label: "٥×٥ — متوسطة" },
+          { v: 6, label: "٦×٦ — كبيرة" }, { v: 7, label: "٧×٧ — ضخمة" }
+        ]),
+        mkGroup("rounds", "عدد الجولات", "من يحسم أكثر الجولات يفوز", [
+          { v: 1, label: "جولة واحدة" }, { v: 3, label: "٣ جولات" },
+          { v: 5, label: "٥ جولات" }, { v: 7, label: "٧ جولات" }
+        ]),
+        mkGroup("time", "وقت السؤال", "المدة المتاحة للإجابة", [
+          { v: 0, label: "بلا مؤقت" }, { v: 15, label: "١٥ ثانية" },
+          { v: 30, label: "٣٠ ثانية" }, { v: 45, label: "٤٥ ثانية" }
+        ]),
+        mkGroup("wrong", "عند الإجابة الخاطئة", "مصير الخلية بعد الخطأ", [
+          { v: "lock", label: "الخلية تُقفل" }, { v: "give", label: "الخلية للفريق الآخر" }
+        ])
+      ],
+      switches: [
+        mkSwitch("flip", "تبديل الاتجاهات كل جولة", "يلغي الأفضلية الطفيفة للاتجاه العمودي"),
+        mkSwitch("sound", "المؤثرات الصوتية", "نغمات عند الاختيار والفوز")
+      ],
+      rows, hexW, hexH,
+      hexFs: Math.round(hexW * 0.42),
+      scoreCards: [mkScore(1, "1", "flex-start", "↕ عمودي"), mkScore(2, "3", "flex-end", "↔ أفقي")],
+      roundLabel: "الجولة ١ من " + st.rounds,
+      turnLabel: "دور " + st.names[st.turn] + " — اختر خلية",
+      turnBg: st.turn === 1 ? t1 : t2,
+      turnFg: T.onAccent,
+      turnColor: st.turn === 1 ? t1 : t2,
+      turnName: st.names[st.turn],
+      remainingLabel: (size * size - owned.length) + " خلية متاحة",
+      hasActive: active != null,
+      activeLetter,
+      activeQuestion: QUESTIONS[activeLetter] || "سؤال يبدأ بحرف " + activeLetter,
+      showTimer: (this.props.showTimer ?? true) && st.time > 0,
+      timeLeft: st.timeLeft,
+      onCorrect: () => this.resolve(true),
+      onWrong: () => this.resolve(false),
+      onClose: () => { clearInterval(this._t); this.set("active", null); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "حروف مع رجا",
+  "short_name": "حروف رجا",
+  "description": "لعبة خلية الحروف — فريقان يتنافسان على وصل الحروف من طرف إلى طرف. 280 سؤالاً عربياً وسعودياً للعائلة والأصدقاء.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0A1A14",
+  "theme_color": "#0A1A14",
+  "categories": ["games", "education", "entertainment"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

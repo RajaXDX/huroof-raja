@@ -31,6 +31,45 @@ body {
   overflow-x: hidden;
 }
 
+/* ===================== سلوك التطبيق لا سلوك المتصفح =====================
+   هذه القواعد تفصل بين شعور «صفحة ويب» وشعور «تطبيق». بدونها يكتشف
+   اللاعب فوراً أنه في متصفح مقنّع — وهو أيضاً ما ترفضه آبل في بند 4.2.
+
+   1) لا تحديد نص: السحب على لوحة اللعب كان يظلّل الحروف بدل أن يلعب.
+   2) لا ارتداد مطاطي: iOS يسحب الصفحة كلها عند التمرير في حافتها.
+   3) لا قائمة ضغط مطوّل على الصور والأزرار.
+   4) الحواف الآمنة: مع viewport-fit=cover يمتد المحتوى تحت النوتش
+      وشريط الإيماءات السفلي، فنعوّضهما بحشوة من env().               */
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+
+/* الحقول وحدها تبقى قابلة للتحديد — وإلا تعذّر تعديل اسم الفريق */
+input, textarea { -webkit-user-select: text; user-select: text; }
+
+.sadu { padding-top: env(safe-area-inset-top, 0px); }
+
+.app-header {
+  padding-inline: max(16px, env(safe-area-inset-left, 0px))
+                  max(16px, env(safe-area-inset-right, 0px));
+}
+
+.screen {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* عند التشغيل كتطبيق مثبّت فقط: نمنع تمرير الصفحة كلها ونجعل كل شاشة
+   هي التي تُمرَّر. في المتصفح نتركه على الوضع الطبيعي حتى لا نكسر
+   التمرير المعتاد. */
+@media (display-mode: standalone) {
+  html, body { height: 100%; overflow: hidden; }
+  .screen.active { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+}
+
 .hidden { display: none !important; }
 .muted { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
 
