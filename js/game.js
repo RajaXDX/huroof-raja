@@ -7,20 +7,12 @@
 
 /* ------------------------------------------------------------ الإعدادات */
 
-const COLOR_PRESETS = [
-  { name: 'أخضر',    value: '#3FA796' },
-  { name: 'ذهبي',    value: '#D4AF37' },
-  { name: 'برتقالي', value: '#E8833A' },
-  { name: 'أزرق',    value: '#4A90D9' },
-  { name: 'أحمر',    value: '#D9534F' },
-  { name: 'بنفسجي',  value: '#8E6FD6' },
-  { name: 'وردي',    value: '#E06C9F' },
-  { name: 'فيروزي',  value: '#2FC4B2' },
-];
-
 const DEFAULT_SETTINGS = {
-  teamA: { name: 'الفريق الأول', color: '#3FA796' },
-  teamB: { name: 'الفريق الثاني', color: '#E8833A' },
+  palette: 'neon',      // مفتاح من THEMES
+  // color = null تعني «استخدم افتراضي الثيم». نخزّن null لا لوناً صريحاً
+  // حتى يتبع الفريقان الثيم تلقائياً عند تبديله، ما لم يختر اللاعب لوناً.
+  teamA: { name: 'الفريق الأول', color: null },
+  teamB: { name: 'الفريق الثاني', color: null },
   size: 5,              // اللوحة size × size
   rounds: 3,            // عدد الجولات (فردي حتى لا تنتهي المباراة بتعادل)
   timer: 30,            // ثواني لكل سؤال، 0 = بلا مؤقت
@@ -31,8 +23,36 @@ const DEFAULT_SETTINGS = {
 
 let SETTINGS = Object.assign({}, DEFAULT_SETTINGS, loadJSON('huroof_settings', {}));
 
+// الثيم قد يكون محذوفاً بعد تحديث — نرجع للافتراضي بدل شاشة بلا ألوان
+if (!THEMES[SETTINGS.palette]) SETTINGS.palette = DEFAULT_SETTINGS.palette;
+
+/* ترحيل الإعدادات المحفوظة من نسخة سابقة.
+   النسخة الأولى خزّنت لوناً صريحاً لكل فريق من لوحة قديمة (أخضر/ذهبي).
+   تلك الألوان غير موجودة في أي ثيم الآن، فمن لعب قبل التحديث كان سيرى
+   لوحة بألوان لا تنتمي للثيم. نصفّر أي لون خارج لوحة الثيم الحالي. */
+(function migrateTeamColors() {
+  const allowed = new Set(
+    Object.values(THEMES).flatMap(t => t.swatches.concat(t.teams))
+  );
+  ['teamA', 'teamB'].forEach(k => {
+    if (SETTINGS[k] && SETTINGS[k].color && !allowed.has(SETTINGS[k].color)) {
+      SETTINGS[k].color = null;
+    }
+  });
+})();
+
 function saveSettings() {
   saveJSON('huroof_settings', SETTINGS);
+}
+
+/** الثيم الفعّال حالياً */
+function theme() {
+  return THEMES[SETTINGS.palette] || THEMES.neon;
+}
+
+/** ألوان الفريقين المتاحة للاختيار — تتبع الثيم */
+function colorSwatches() {
+  return theme().swatches;
 }
 
 /* ------------------------------------------------------------ بنك الأسئلة */
@@ -121,9 +141,14 @@ const Game = {
   answerShown: false,
 };
 
-function teamName(t)  { return t === 'A' ? SETTINGS.teamA.name : SETTINGS.teamB.name; }
-function teamColor(t) { return t === 'A' ? SETTINGS.teamA.color : SETTINGS.teamB.color; }
+function teamName(t) { return t === 'A' ? SETTINGS.teamA.name : SETTINGS.teamB.name; }
 function otherTeam(t) { return t === 'A' ? 'B' : 'A'; }
+
+/** لون الفريق: اختيار اللاعب إن وُجد، وإلا افتراضي الثيم */
+function teamColor(t) {
+  const chosen = t === 'A' ? SETTINGS.teamA.color : SETTINGS.teamB.color;
+  return chosen || theme().teams[t === 'A' ? 0 : 1];
+}
 
 /* --------------------------------------------------------- بدء المباراة */
 
@@ -214,6 +239,27 @@ function stopTimer() {
 function revealAnswer() {
   Game.answerShown = true;
   UI.showAnswer();
+}
+
+/**
+ * يغلق السؤال ويعيد الخلية كما كانت بلا حكم ولا تبديل دور.
+ * موجود لأن المقدّم قد يفتح خلية بالخطأ، أو يجد السؤال مكروراً أو غامضاً.
+ * لا يستهلك السؤال: نعيده إلى المتاح حتى لا يُفقد من البنك.
+ */
+function cancelQuestion() {
+  if (Game.activeCell === null) return;
+  stopTimer();
+
+  const q = Game.questions[Game.activeCell];
+  if (q && usedQuestions[q.letter]) {
+    const list = BANK[q.letter] || [];
+    const idx = list.findIndex(x => x.q === q.q);
+    if (idx >= 0) usedQuestions[q.letter].delete(idx);
+  }
+
+  Game.activeCell = null;
+  Game.answerShown = false;
+  UI.closeQuestion();
 }
 
 /**

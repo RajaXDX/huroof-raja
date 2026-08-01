@@ -13,25 +13,41 @@ const UI = (function () {
      على جوال 360px وعلى شاشة كبيرة بنفس الكود.
 
      المساحة تُقاس ولا تُخمَّن: الحشوة تُقرأ من التنسيق المطبَّق (تختلف بين
-     الجوال والشاشة الكبيرة)، والارتفاع من موضع الحاوية الحقيقي على الصفحة.
-     التخمين برقم ثابت هنا كان يسبّب تجاوزاً أفقياً في بعض المقاسات. */
-  const BAND_ALLOWANCE = 30;   // مساحة أشرطة الحواف البارزة خارج اللوحة
+     الجوال والشاشة الكبيرة)، والارتفاع من موضع الحاوية الحقيقي على الصفحة. */
+  const GAP = 6;          // الفراغ بين الخلايا — من المواصفة
+  const BAND = 10;        // سمك شريط الحافة
+  const BAND_GAP = 12;    // المسافة بين الشريط واللوحة
+  const FRAME = (BAND + BAND_GAP) * 2;   // ما تستهلكه الأشرطة على كل محور
 
-  function computeHexSize(rows, cols) {
+  /* عرض الخلية المثالي لكل مقاس لوحة — من مواصفة التصميم مباشرة.
+     نبدأ منه وننزل فقط إن ضاقت الشاشة، فلا تخرج اللوحة أكبر مما صُمّمت له. */
+  const IDEAL_WIDTH = { 4: 106, 5: 94, 6: 82, 7: 72 };
+  const MIN_WIDTH = 30;
+
+  function computeHexWidth(rows, cols) {
     const stage = $('boardStage');
-    if (!stage) return 40;
+    if (!stage) return IDEAL_WIDTH[cols] || 82;
 
     const cs = getComputedStyle(stage);
     const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
 
-    const availW = stage.clientWidth - padX - BAND_ALLOWANCE;
-    const availH = window.innerHeight - stage.getBoundingClientRect().top - padY - BAND_ALLOWANCE;
+    // نقيس ارتفاع التذييل فعلياً بدل ثابت مخمَّن. الثابت كان يترك أكثر
+    // من مئة بكسل فاضية أسفل اللوحة على الجوال.
+    const foot = document.querySelector('.board-foot');
+    const footH = foot ? foot.getBoundingClientRect().height + 28 : 0;
 
-    const byWidth  = availW / ((cols + 0.5) * Math.sqrt(3));
-    const byHeight = availH / (1.5 * rows + 0.5);
+    const availW = stage.clientWidth - padX - FRAME;
+    const availH = window.innerHeight - stage.getBoundingClientRect().top
+                   - padY - footH - FRAME;
 
-    return Math.max(20, Math.min(62, Math.floor(Math.min(byWidth, byHeight))));
+    // عرض اللوحة = cols×(w+gap) − gap + (w+gap)/2
+    const byWidth = (availW + GAP - GAP / 2) / (cols + 0.5) - GAP;
+    // ارتفاع اللوحة = ((rows−1)×0.75 + 1) × 1.14 × w
+    const byHeight = availH / (((rows - 1) * 0.75 + 1) * 1.14);
+
+    const ideal = IDEAL_WIDTH[cols] || 82;
+    return Math.max(MIN_WIDTH, Math.floor(Math.min(ideal, byWidth, byHeight)));
   }
 
   /* ------------------------------------------------------------ اللوحة */
@@ -40,8 +56,8 @@ const UI = (function () {
     const board = $('board');
     board.innerHTML = '';
 
-    const size = computeHexSize(Game.rows, Game.cols);
-    layoutCache = Hive.layout(Game.cells, Game.rows, Game.cols, size);
+    const w = computeHexWidth(Game.rows, Game.cols);
+    layoutCache = Hive.layout(Game.cells, Game.rows, Game.cols, w, GAP);
 
     board.style.width  = layoutCache.width + 'px';
     board.style.height = layoutCache.height + 'px';
@@ -55,47 +71,32 @@ const UI = (function () {
           top:    c.y + 'px',
           width:  c.w + 'px',
           height: c.h + 'px',
-          fontSize: Math.round(size * 0.72) + 'px',
+          // مواصفة التصميم: حجم الحرف = عرض الخلية × 0.42
+          fontSize: Math.round(c.w * 0.42) + 'px',
         },
-      });
+      }, escapeHtml(Game.letters[c.index]));
 
-      hex.appendChild(el('span', { class: 'hex-letter' }, escapeHtml(Game.letters[c.index])));
       hex.addEventListener('click', () => selectCell(c.index));
       board.appendChild(hex);
       paintCell(c.index);
     });
 
-    drawEdges(size);
+    drawEdges();
   }
 
-  /* أشرطة ملوّنة على الحواف الأربع تبيّن اتجاه كل فريق */
-  function drawEdges(size) {
-    const stage = $('boardStage');
-    stage.querySelectorAll('.edge-band').forEach(n => n.remove());
-
+  /* أشرطة ملوّنة تحيط اللوحة وتبيّن طرفي كل فريق.
+     تُبنى كإخوة للوحة داخل إطار مرن، لا كعناصر مطلقة فوقها: هكذا تتمدّد
+     تلقائياً مع اللوحة ولا تحتاج إعادة حساب عند تغيّر المقاس. */
+  function drawEdges() {
     const vTeam = Game.axis.A === 'vertical' ? 'A' : 'B';
     const hTeam = otherTeam(vTeam);
-    const thickness = Math.max(6, Math.round(size * 0.18));
 
-    const bands = [
-      { cls: 'edge-top',    team: vTeam },
-      { cls: 'edge-bottom', team: vTeam },
-      { cls: 'edge-right',  team: hTeam },
-      { cls: 'edge-left',   team: hTeam },
-    ];
+    $('edgeTop').style.background    = teamColor(vTeam);
+    $('edgeBottom').style.background = teamColor(vTeam);
+    $('edgeStart').style.background  = teamColor(hTeam);
+    $('edgeEnd').style.background    = teamColor(hTeam);
 
-    bands.forEach(b => {
-      const band = el('div', { class: 'edge-band ' + b.cls });
-      band.style.background = teamColor(b.team);
-      if (b.cls === 'edge-top' || b.cls === 'edge-bottom') {
-        band.style.height = thickness + 'px';
-        band.style.width = layoutCache.width + 'px';
-      } else {
-        band.style.width = thickness + 'px';
-        band.style.height = layoutCache.height + 'px';
-      }
-      $('board').appendChild(band);
-    });
+    $('boardCol').style.width = layoutCache.width + 'px';
   }
 
   /** يلوّن خلية واحدة حسب مالكها */
@@ -110,7 +111,7 @@ const UI = (function () {
       hex.classList.add(owner === 'A' ? 'owned-a' : 'owned-b');
       hex.style.setProperty('--hex-fill', teamColor(owner));
       hex.classList.add('just-taken');
-      setTimeout(() => hex.classList.remove('just-taken'), 500);
+      setTimeout(() => hex.classList.remove('just-taken'), 450);
     } else if (owner === 'blocked') {
       hex.classList.add('blocked');
       hex.style.removeProperty('--hex-fill');
@@ -132,47 +133,49 @@ const UI = (function () {
   /* ------------------------------------------------------------- الحالة */
 
   function renderStatus() {
-    const a = Hive.countCells(Game.owners, 'A');
-    const b = Hive.countCells(Game.owners, 'B');
+    const cA = teamColor('A'), cB = teamColor('B');
 
-    $('scoreA').textContent = a;
-    $('scoreB').textContent = b;
+    $('scoreA').textContent = Hive.countCells(Game.owners, 'A');
+    $('scoreB').textContent = Hive.countCells(Game.owners, 'B');
     $('nameA').textContent = SETTINGS.teamA.name;
     $('nameB').textContent = SETTINGS.teamB.name;
     $('winsA').textContent = '🏆 ' + Game.wins.A;
     $('winsB').textContent = '🏆 ' + Game.wins.B;
 
-    $('teamCardA').style.setProperty('--team-color', SETTINGS.teamA.color);
-    $('teamCardB').style.setProperty('--team-color', SETTINGS.teamB.color);
-
+    $('teamCardA').style.setProperty('--team-color', cA);
+    $('teamCardB').style.setProperty('--team-color', cB);
     $('teamCardA').classList.toggle('is-turn', Game.turn === 'A' && Game.phase === 'playing');
     $('teamCardB').classList.toggle('is-turn', Game.turn === 'B' && Game.phase === 'playing');
 
-    $('dirA').textContent = Game.axis.A === 'vertical' ? '↕ عمودي' : '↔ أفقي';
-    $('dirB').textContent = Game.axis.B === 'vertical' ? '↕ عمودي' : '↔ أفقي';
+    const dirText = t => Game.axis[t] === 'vertical' ? '↕ عمودي' : '↔ أفقي';
+    $('dirA').textContent = dirText('A');
+    $('dirB').textContent = dirText('B');
 
     $('roundLabel').textContent = 'الجولة ' + Game.round + ' من ' + SETTINGS.rounds;
 
     const turnBar = $('turnBar');
     turnBar.textContent = 'دور ' + teamName(Game.turn) + ' — اختر خلية';
     turnBar.style.background = teamColor(Game.turn);
+
+    $('footA').textContent = dirText('A') + ' لـ' + SETTINGS.teamA.name;
+    $('footB').textContent = dirText('B') + ' لـ' + SETTINGS.teamB.name;
+    $('footFree').textContent = Game.owners.filter(o => o === null).length + ' خلية متاحة';
   }
 
   function renderRound() {
     showScreen('screen-game');
     renderBoard();
     renderStatus();
+    syncTabs();
   }
 
   /* ------------------------------------------------------ نافذة السؤال */
 
   function openQuestion(index) {
     const q = Game.questions[index];
-    const modal = $('questionModal');
 
     $('qLetter').textContent = Game.letters[index];
-    $('qLetter').style.background = teamColor(Game.turn);
-    $('qTeam').textContent = 'دور ' + teamName(Game.turn);
+    $('qTeam').textContent = teamName(Game.turn);
     $('qTeam').style.color = teamColor(Game.turn);
     $('qText').textContent = q ? q.q : '(لا يوجد سؤال لهذا الحرف)';
     $('qHint').textContent = 'الإجابة تبدأ بحرف « ' + Game.letters[index] + ' »';
@@ -182,7 +185,7 @@ const UI = (function () {
     $('revealBtn').classList.remove('hidden');
     $('judgeRow').classList.add('hidden');
 
-    modal.classList.add('show');
+    $('questionModal').classList.add('show');
   }
 
   function showAnswer() {
@@ -198,11 +201,8 @@ const UI = (function () {
   function updateTimer(seconds) {
     const wrap = $('qTimer');
     if (seconds === null) { wrap.classList.add('hidden'); return; }
-
     wrap.classList.remove('hidden');
     $('qTimerText').textContent = seconds;
-    const pct = Math.max(0, (seconds / SETTINGS.timer) * 100);
-    $('qTimerFill').style.width = pct + '%';
     wrap.classList.toggle('urgent', seconds <= 5);
   }
 
@@ -215,36 +215,34 @@ const UI = (function () {
       Game.wins.A > SETTINGS.rounds / 2 || Game.wins.B > SETTINGS.rounds / 2;
 
     setTimeout(() => {
-      const overlay = $('roundOverlay');
       const w = Game.winner;
-
       $('roundTitle').textContent = w
         ? 'فاز ' + teamName(w) + ' بالجولة ' + Game.round
         : 'الجولة ' + Game.round + ' انتهت بالتعادل';
-      $('roundTitle').style.color = w ? teamColor(w) : 'var(--sand)';
+      $('roundTitle').style.color = w ? teamColor(w) : 'var(--head)';
       $('roundIcon').textContent = w ? '🎉' : '🤝';
       $('roundScore').textContent =
         SETTINGS.teamA.name + ' ' + Game.wins.A + '  —  ' + Game.wins.B + ' ' + SETTINGS.teamB.name;
-      $('roundNextBtn').textContent = isLast ? 'النتيجة النهائية 🏆' : 'الجولة التالية ←';
-
-      overlay.classList.add('show');
+      $('roundNextBtn').textContent = isLast ? 'النتيجة النهائية' : 'الجولة التالية';
+      $('roundOverlay').classList.add('show');
     }, (Game.winPath ? Game.winPath.length * 110 : 0) + 600);
   }
 
   function showMatchResult() {
     $('roundOverlay').classList.remove('show');
     showScreen('screen-end');
+    syncTabs();
 
     const a = Game.wins.A, b = Game.wins.B;
     const w = a === b ? null : (a > b ? 'A' : 'B');
 
     $('endIcon').textContent = w ? '🏆' : '🤝';
     $('endTitle').textContent = w ? teamName(w) + ' بطل المباراة!' : 'تعادل!';
-    $('endTitle').style.color = w ? teamColor(w) : 'var(--gold)';
+    $('endTitle').style.color = w ? teamColor(w) : 'var(--accent)';
     $('endScore').innerHTML =
-      '<span style="color:' + SETTINGS.teamA.color + '">' + escapeHtml(SETTINGS.teamA.name) + ' ' + a + '</span>' +
+      '<span style="color:' + teamColor('A') + '">' + escapeHtml(SETTINGS.teamA.name) + ' ' + a + '</span>' +
       '<span class="end-dash">—</span>' +
-      '<span style="color:' + SETTINGS.teamB.color + '">' + b + ' ' + escapeHtml(SETTINGS.teamB.name) + '</span>';
+      '<span style="color:' + teamColor('B') + '">' + b + ' ' + escapeHtml(SETTINGS.teamB.name) + '</span>';
 
     Sound.win();
   }

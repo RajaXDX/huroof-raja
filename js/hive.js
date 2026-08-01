@@ -144,31 +144,36 @@ const Hive = (function () {
 
   /**
    * يحسب موضع كل خلية بالبكسل ومقاس الحاوية.
-   * سداسي مدبّب من الأعلى (pointy-top):
-   *   العرض  = √3 × size
-   *   الارتفاع = 2 × size
-   *   المسافة الرأسية بين الصفوف = ¾ × الارتفاع  (لأن الصفوف تتداخل)
-   *   الصف الفردي يُزاح نصف عرض
    *
-   * @param {number} size نصف قطر السداسي بالبكسل
+   * سداسي مدبّب من الأعلى. مواصفة التصميم تحدّد:
+   *   الارتفاع = العرض × 1.14
+   *   فراغ أفقي 6px بين الخلايا
+   *   إزاحة الصف الفردي = (العرض + الفراغ) ÷ 2
+   *   تراكب رأسي = −الارتفاع ÷ 4، أي الخطوة الرأسية = ¾ الارتفاع
+   *
+   * الفراغ ليس تجميلاً فقط: بلا فصل تبدو الخلايا كتلة واحدة ويصعب تتبّع
+   * السلسلة المتّصلة بصرياً، وهي جوهر اللعبة.
+   *
+   * @param {number} w   عرض السداسي بالبكسل
+   * @param {number} gap الفراغ بين الخلايا
    */
-  function layout(cells, rows, cols, size) {
-    const w = Math.sqrt(3) * size;
-    const h = 2 * size;
-    const vStep = h * 0.75;
+  function layout(cells, rows, cols, w, gap = 6) {
+    const h = w * 1.14;
+    const stepX = w + gap;
+    const stepY = h * 0.75;
 
     const positioned = cells.map(c => ({
       ...c,
-      x: c.col * w + (c.row % 2 ? w / 2 : 0),
-      y: c.row * vStep,
+      x: c.col * stepX + (c.row % 2 ? stepX / 2 : 0),
+      y: c.row * stepY,
       w,
       h,
     }));
 
     return {
       cells: positioned,
-      width: cols * w + (rows > 1 ? w / 2 : 0),
-      height: (rows - 1) * vStep + h,
+      width: cols * stepX - gap + (rows > 1 ? stepX / 2 : 0),
+      height: (rows - 1) * stepY + h,
       hexWidth: w,
       hexHeight: h,
     };

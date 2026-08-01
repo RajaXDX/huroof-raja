@@ -11,7 +11,7 @@
    إلى الأبد — وهذا أشهر خطأ في عمّال الخدمة.
    ========================================================================== */
 
-const CACHE_VERSION = 'huroof-v1';
+const CACHE_VERSION = 'huroof-v2';
 
 const ASSETS = [
   './',
@@ -19,20 +19,27 @@ const ASSETS = [
   './manifest.json',
   './css/style.css',
   './css/fonts.css',
+  './js/themes.js',
   './js/utils.js',
   './js/hive.js',
   './js/game.js',
   './js/ui.js',
   './js/setup.js',
   './data/questions.json',
-  './assets/fonts/tajawal-400-arabic.woff2',
-  './assets/fonts/tajawal-500-arabic.woff2',
-  './assets/fonts/tajawal-700-arabic.woff2',
-  './assets/fonts/tajawal-800-arabic.woff2',
-  './assets/fonts/tajawal-400-latin.woff2',
-  './assets/fonts/tajawal-500-latin.woff2',
-  './assets/fonts/tajawal-700-latin.woff2',
-  './assets/fonts/tajawal-800-latin.woff2',
+  './assets/fonts/almarai-300-arabic.woff2',
+  './assets/fonts/almarai-300-latin.woff2',
+  './assets/fonts/almarai-400-arabic.woff2',
+  './assets/fonts/almarai-400-latin.woff2',
+  './assets/fonts/almarai-700-arabic.woff2',
+  './assets/fonts/almarai-700-latin.woff2',
+  './assets/fonts/cairo-400-arabic.woff2',
+  './assets/fonts/cairo-400-latin.woff2',
+  './assets/fonts/cairo-600-arabic.woff2',
+  './assets/fonts/cairo-600-latin.woff2',
+  './assets/fonts/cairo-700-arabic.woff2',
+  './assets/fonts/cairo-700-latin.woff2',
+  './assets/fonts/cairo-900-arabic.woff2',
+  './assets/fonts/cairo-900-latin.woff2',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/icons/icon-180.png',

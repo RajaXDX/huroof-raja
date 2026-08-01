@@ -5,15 +5,14 @@
   <!-- viewport-fit=cover: تمتد الصفحة تحت النوتش، والحواف الآمنة تُعالَج في CSS -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>حروف مع رجا</title>
-  <meta name="description" content="لعبة خلية الحروف — فريقان يتنافسان على وصل الحروف من طرف إلى طرف. أسئلة عربية وسعودية للعائلة والأصدقاء.">
-  <meta name="theme-color" content="#0A1A14">
+  <meta name="description" content="لعبة خلية الحروف — فريقان يتنافسان على وصل الحروف من طرف إلى طرف. 280 سؤالاً عربياً وسعودياً للعائلة والأصدقاء.">
+  <meta name="theme-color" content="#141926">
 
   <meta property="og:title" content="حروف مع رجا">
-  <meta property="og:description" content="لعبة خلية الحروف — وصّل الحروف قبل خصمك!">
+  <meta property="og:description" content="صِل حروفك من طرف إلى طرف قبل خصمك">
   <meta property="og:type" content="website">
   <meta property="og:image" content="assets/icons/icon-512.png">
 
-  <!-- تطبيق ويب: أيقونة على الشاشة الرئيسية وعرض بملء الشاشة -->
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32.png">
   <link rel="apple-touch-icon" href="assets/icons/icon-180.png">
@@ -22,13 +21,13 @@
   <meta name="apple-mobile-web-app-title" content="حروف رجا">
   <meta name="mobile-web-app-capable" content="yes">
 
-  <!-- الخط محزوم محلياً لا من Google — اللعبة يجب أن تعمل بلا إنترنت -->
-  <link rel="stylesheet" href="css/fonts.css?v=1">
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <!-- الخطوط محزومة محلياً لا من Google — اللعبة يجب أن تعمل بلا إنترنت -->
+  <link rel="stylesheet" href="css/fonts.css?v=3">
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
 
-<div class="sadu"></div>
+<div class="deco-bar"></div>
 
 <header class="app-header">
   <div class="brand">
@@ -38,38 +37,42 @@
       <div class="brand-tag">خلية الحروف</div>
     </div>
   </div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab" data-screen="screen-home" onclick="goHome()">الرئيسية</button>
+    <button class="tab" data-screen="screen-setup" onclick="goSetup()">الإعدادات</button>
+    <button class="tab" data-screen="screen-game" onclick="goBoard()">اللوحة</button>
+  </nav>
 </header>
 
 
 <!-- ============================ الرئيسية ============================ -->
 <div class="screen active" id="screen-home">
-  <div class="wrap">
-    <div class="hero">
-      <h1 class="hero-title">حروف مع رجا</h1>
-      <p class="hero-sub">وصّل حروفك من طرف إلى طرف قبل خصمك</p>
+  <div class="wrap wrap-home">
+    <div class="hero-hexes">
+      <span class="hero-hex"></span><span class="hero-hex"></span><span class="hero-hex"></span>
     </div>
 
+    <h1 class="hero-title">حروف مع رجا</h1>
+    <p class="hero-sub">صِل حروفك من طرف إلى طرف قبل خصمك — جولات من الذكاء والسرعة.</p>
+
     <div class="home-buttons">
-      <button class="btn btn-primary btn-big" onclick="goSetup()">
-        <span class="btn-icon">🎯</span><span>لعبة جديدة</span>
-      </button>
-      <button class="btn btn-ghost btn-big" onclick="goHowTo()">
-        <span class="btn-icon">📖</span><span>كيف نلعب؟</span>
-      </button>
+      <button class="btn btn-primary btn-big" onclick="goSetup()">لعبة جديدة</button>
+      <button class="btn btn-ghost btn-big" onclick="goHowTo()">كيف نلعب؟</button>
     </div>
 
     <div class="home-stats">
       <div class="stat-card">
-        <div class="stat-icon">🔤</div>
-        <div><div class="stat-label">حروف</div><div class="stat-value" id="statLetters">--</div></div>
+        <div class="stat-label">الفرق</div>
+        <div class="stat-value">فريقان</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">❓</div>
-        <div><div class="stat-label">أسئلة</div><div class="stat-value" id="statQuestions">--</div></div>
+        <div class="stat-label">الأسئلة</div>
+        <div class="stat-value" id="statQuestions">—</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">👥</div>
-        <div><div class="stat-label">الفرق</div><div class="stat-value">فريقان</div></div>
+        <div class="stat-label">الحروف</div>
+        <div class="stat-value" id="statLetters">—</div>
       </div>
     </div>
 
@@ -77,6 +80,8 @@
       ⚠️ بنك الأسئلة لم يُحمَّل. لا تفتح <code>index.html</code> مباشرة —
       شغّل خادماً محلياً (اقرأ ملف README).
     </div>
+
+    <p class="home-foot">فريقان · لوحة سداسية · أسئلة عربية</p>
   </div>
 </div>
 
@@ -84,7 +89,8 @@
 <!-- ============================ كيف نلعب ============================ -->
 <div class="screen" id="screen-howto">
   <div class="wrap">
-    <h2 class="page-title">📖 كيف نلعب</h2>
+    <h2 class="page-title">كيف نلعب</h2>
+    <p class="page-sub">ست قواعد تكفي لتبدأ</p>
 
     <div class="rules">
       <div class="rule">
@@ -98,45 +104,38 @@
         <span class="rule-num">٢</span>
         <div>
           <b>الهدف</b>
-          <p>فريق يبني سلسلة متّصلة من <b>أعلى اللوحة إلى أسفلها</b>، والفريق الآخر
+          <p>فريق يبني سلسلة متّصلة من <b>أعلى اللوحة إلى أسفلها</b>، والآخر
              من <b>اليمين إلى اليسار</b>. أول من يكمل سلسلته يفوز بالجولة.
-             الأشرطة الملوّنة على حواف اللوحة تبيّن اتجاه كل فريق.</p>
+             الأشرطة الملوّنة على الحواف تبيّن اتجاه كل فريق.</p>
         </div>
       </div>
       <div class="rule">
         <span class="rule-num">٣</span>
         <div>
           <b>السؤال</b>
-          <p>الفريق صاحب الدور يختار أي مسدس فارغ، فيظهر سؤال إجابته تبدأ بذلك الحرف.
+          <p>صاحب الدور يختار أي مسدس فارغ، فيظهر سؤال إجابته تبدأ بذلك الحرف.
              يجيبون بصوت عالٍ، ثم يُضغط «اعرض الإجابة» ويُحكم: صح أم خطأ.</p>
         </div>
       </div>
       <div class="rule">
         <span class="rule-num">٤</span>
         <div>
-          <b>الإجابة الصحيحة</b>
-          <p>المسدس يأخذ لون الفريق ويصير جزءاً من سلسلته.</p>
+          <b>نتيجة الإجابة</b>
+          <p>الصحيحة تجعل المسدس ملكاً للفريق. والخاطئة حسب إعدادك:
+             تذهب للفريق الآخر، أو تُقفل للطرفين، أو تبقى متاحة.</p>
         </div>
       </div>
       <div class="rule">
         <span class="rule-num">٥</span>
         <div>
-          <b>الإجابة الخاطئة</b>
-          <p>حسب القاعدة المختارة في الإعدادات: المسدس يذهب للفريق الآخر (الافتراضي)،
-             أو يُقفل للطرفين، أو يبقى متاحاً.</p>
+          <b>تبديل الاتجاهات</b>
+          <p>اللوحة المربعة تعطي الاتجاه العمودي أفضلية نحو ٣٪ لأن المسدسات
+             تتداخل رأسياً. لذلك يتبادل الفريقان الاتجاهين كل جولة فتتعادل
+             الفرصة. يمكن إيقافه من الإعدادات.</p>
         </div>
       </div>
       <div class="rule">
         <span class="rule-num">٦</span>
-        <div>
-          <b>تبديل الاتجاهات</b>
-          <p>اللوحة المربعة تعطي الاتجاه العمودي أفضلية بسيطة (نحو ٣٪) لأن المسدسات
-             تتداخل رأسياً. لذلك يتبادل الفريقان الاتجاهين كل جولة، فتتعادل الفرصة.
-             يمكن إيقاف ذلك من الإعدادات.</p>
-        </div>
-      </div>
-      <div class="rule">
-        <span class="rule-num">٧</span>
         <div>
           <b>اختصارات المقدّم</b>
           <p><kbd>مسافة</kbd> تعرض الإجابة · <kbd>1</kbd> صح · <kbd>2</kbd> خطأ</p>
@@ -145,7 +144,7 @@
     </div>
 
     <div class="nav">
-      <button class="btn btn-ghost" onclick="goHome()">← رجوع</button>
+      <button class="btn btn-ghost" onclick="goHome()">رجوع</button>
       <button class="btn btn-primary" onclick="goSetup()">ابدأ اللعب</button>
     </div>
   </div>
@@ -155,77 +154,87 @@
 <!-- ============================ الإعدادات ============================ -->
 <div class="screen" id="screen-setup">
   <div class="wrap">
-    <h2 class="page-title">⚙️ إعدادات المباراة</h2>
+    <h2 class="page-title">إعدادات المباراة</h2>
+    <p class="page-sub">اختر الشكل والفريقين وقواعد اللعب</p>
+
+    <div class="card">
+      <div class="card-title">لون الواجهة</div>
+      <div class="theme-grid" id="themeGrid"></div>
+    </div>
 
     <div class="setup-grid">
-      <div class="panel">
-        <div class="panel-title">الفريقان</div>
+      <div class="card">
+        <div class="card-title">الفريقان</div>
 
-        <div class="team-row">
-          <label class="field">
-            <span>اسم الفريق الأول</span>
+        <div class="team-field">
+          <div class="team-label">اسم الفريق الأول</div>
+          <div class="name-input" id="nameInputA">
+            <span class="dot"></span>
             <input type="text" id="inputNameA" maxlength="18" onchange="commitNames()">
-          </label>
+          </div>
           <div class="colors" id="colorsA"></div>
         </div>
 
-        <div class="team-row">
-          <label class="field">
-            <span>اسم الفريق الثاني</span>
+        <div class="team-field">
+          <div class="team-label">اسم الفريق الثاني</div>
+          <div class="name-input" id="nameInputB">
+            <span class="dot"></span>
             <input type="text" id="inputNameB" maxlength="18" onchange="commitNames()">
-          </label>
+          </div>
           <div class="colors" id="colorsB"></div>
         </div>
       </div>
 
-      <div class="panel panel-preview">
-        <div class="panel-title">معاينة اللوحة</div>
+      <div class="card">
+        <div class="card-title">معاينة اللوحة</div>
         <div class="preview-stage"><div id="setupPreview"></div></div>
+        <div class="preview-note" id="previewNote"></div>
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-title">حجم الخلية</div>
+    <div class="opt-row">
+      <div class="opt-head">حجم اللوحة</div>
+      <div class="opt-desc">عدد الخلايا في كل صف</div>
       <div class="choices" id="sizeChoices"></div>
     </div>
 
-    <div class="panel">
-      <div class="panel-title">عدد الجولات</div>
+    <div class="opt-row">
+      <div class="opt-head">عدد الجولات</div>
+      <div class="opt-desc">من يحسم أكثر الجولات يفوز</div>
       <div class="choices" id="roundChoices"></div>
     </div>
 
-    <div class="panel">
-      <div class="panel-title">وقت السؤال</div>
+    <div class="opt-row">
+      <div class="opt-head">وقت السؤال</div>
+      <div class="opt-desc">المدة المتاحة للإجابة</div>
       <div class="choices" id="timerChoices"></div>
     </div>
 
-    <div class="panel">
-      <div class="panel-title">عند الإجابة الخاطئة</div>
+    <div class="opt-row">
+      <div class="opt-head">عند الإجابة الخاطئة</div>
+      <div class="opt-desc">مصير الخلية بعد الخطأ</div>
       <div class="choices" id="wrongChoices"></div>
     </div>
 
-    <div class="panel">
-      <div class="toggle-row" onclick="toggleSwapSides()">
-        <div>
-          <b>تبديل الاتجاهات كل جولة</b>
-          <p class="muted">يلغي الأفضلية الطفيفة للاتجاه العمودي</p>
-        </div>
-        <div class="switch" id="swapToggle"><span></span></div>
+    <div class="toggle-row" onclick="toggleSwapSides()">
+      <div>
+        <div class="opt-head">تبديل الاتجاهات كل جولة</div>
+        <div class="opt-desc" style="margin-bottom:0">يلغي الأفضلية الطفيفة للاتجاه العمودي</div>
       </div>
-      <div class="toggle-row" onclick="toggleSound()">
-        <div>
-          <b>المؤثرات الصوتية</b>
-          <p class="muted">نغمات عند الاختيار والفوز</p>
-        </div>
-        <div class="switch" id="soundToggle"><span></span></div>
+      <div class="switch" id="swapToggle"><span></span></div>
+    </div>
+
+    <div class="toggle-row" onclick="toggleSound()">
+      <div>
+        <div class="opt-head">المؤثرات الصوتية</div>
+        <div class="opt-desc" style="margin-bottom:0">نغمات عند الاختيار والفوز</div>
       </div>
+      <div class="switch" id="soundToggle"><span></span></div>
     </div>
 
     <div class="nav">
-      <button class="btn btn-ghost" onclick="goHome()">← رجوع</button>
-      <button class="btn btn-primary btn-big" onclick="beginMatch()">
-        <span class="btn-icon">🚀</span><span>ابدأ المباراة</span>
-      </button>
+      <button class="btn btn-ghost" onclick="goHome()">رجوع</button>
+      <button class="btn btn-primary" onclick="beginMatch()">ابدأ المباراة</button>
     </div>
   </div>
 </div>
@@ -233,35 +242,51 @@
 
 <!-- ============================== اللعب ============================== -->
 <div class="screen" id="screen-game">
-  <div class="game-top">
-    <div class="team-card" id="teamCardA">
-      <div class="team-name" id="nameA">الفريق الأول</div>
-      <div class="team-meta">
-        <span class="team-score" id="scoreA">0</span>
-        <span class="team-dir" id="dirA">↕ عمودي</span>
+  <div class="wrap wrap-board">
+    <div class="game-top">
+      <div class="team-card team-card-a" id="teamCardA">
+        <div class="team-name" id="nameA">الفريق الأول</div>
+        <div class="team-meta">
+          <span class="team-score" id="scoreA">0</span>
+          <span class="team-dir" id="dirA">↕ عمودي</span>
+          <span class="team-wins" id="winsA">🏆 0</span>
+        </div>
       </div>
-      <div class="team-wins" id="winsA">🏆 0</div>
-    </div>
 
-    <div class="round-box">
-      <div class="round-label" id="roundLabel">الجولة 1</div>
-      <button class="btn btn-tiny btn-ghost" onclick="quitMatch()">إنهاء</button>
-    </div>
-
-    <div class="team-card" id="teamCardB">
-      <div class="team-name" id="nameB">الفريق الثاني</div>
-      <div class="team-meta">
-        <span class="team-score" id="scoreB">0</span>
-        <span class="team-dir" id="dirB">↔ أفقي</span>
+      <div class="round-box">
+        <div class="round-label" id="roundLabel">الجولة ١</div>
+        <button class="btn btn-ghost btn-tiny" onclick="quitMatch()">إنهاء</button>
       </div>
-      <div class="team-wins" id="winsB">🏆 0</div>
+
+      <div class="team-card team-card-b" id="teamCardB">
+        <div class="team-name" id="nameB">الفريق الثاني</div>
+        <div class="team-meta">
+          <span class="team-score" id="scoreB">0</span>
+          <span class="team-dir" id="dirB">↔ أفقي</span>
+          <span class="team-wins" id="winsB">🏆 0</span>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <div class="turn-bar" id="turnBar">دور الفريق الأول</div>
+    <div class="turn-bar" id="turnBar">دور الفريق الأول — اختر خلية</div>
 
-  <div class="board-stage" id="boardStage">
-    <div class="board" id="board"></div>
+    <div class="board-stage" id="boardStage">
+      <div class="board-frame">
+        <div class="edge-v" id="edgeStart"></div>
+        <div class="board-col" id="boardCol">
+          <div class="edge-h" id="edgeTop"></div>
+          <div class="board" id="board"></div>
+          <div class="edge-h" id="edgeBottom"></div>
+        </div>
+        <div class="edge-v" id="edgeEnd"></div>
+      </div>
+    </div>
+
+    <div class="board-foot">
+      <span id="footA">عمودي ↕ للفريق الأول</span>
+      <span id="footB">أفقي ↔ للفريق الثاني</span>
+      <span id="footFree">— خلية متاحة</span>
+    </div>
   </div>
 </div>
 
@@ -273,11 +298,9 @@
     <h2 class="end-title" id="endTitle">الفائز</h2>
     <div class="end-score" id="endScore"></div>
     <div class="nav">
-      <button class="btn btn-primary btn-big" onclick="beginMatch()">
-        <span class="btn-icon">🔁</span><span>مباراة جديدة</span>
-      </button>
-      <button class="btn btn-ghost" onclick="goSetup()">⚙️ الإعدادات</button>
-      <button class="btn btn-ghost" onclick="goHome()">🏠 الرئيسية</button>
+      <button class="btn btn-primary" onclick="beginMatch()">مباراة جديدة</button>
+      <button class="btn btn-ghost" onclick="goSetup()">الإعدادات</button>
+      <button class="btn btn-ghost" onclick="goHome()">الرئيسية</button>
     </div>
   </div>
 </div>
@@ -289,55 +312,53 @@
     <div class="q-head">
       <div class="q-letter" id="qLetter">ب</div>
       <div>
-        <div class="q-team" id="qTeam">دور الفريق الأول</div>
-        <div class="q-hint" id="qHint">الإجابة تبدأ بحرف « ب »</div>
+        <div class="q-turn-label">دور</div>
+        <div class="q-team" id="qTeam">الفريق الأول</div>
       </div>
-    </div>
-
-    <div class="q-timer hidden" id="qTimer">
-      <div class="q-timer-bar"><div class="q-timer-fill" id="qTimerFill"></div></div>
-      <div class="q-timer-text" id="qTimerText">30</div>
+      <div class="q-timer hidden" id="qTimer"><span id="qTimerText">30</span></div>
     </div>
 
     <div class="q-text" id="qText"></div>
+    <div class="q-hint" id="qHint"></div>
 
     <div class="q-answer hidden" id="qAnswer"></div>
 
-    <button class="btn btn-primary btn-big" id="revealBtn" onclick="revealAnswer()">
-      <span class="btn-icon">👁️</span><span>اعرض الإجابة</span>
-    </button>
+    <button class="btn btn-primary btn-big" id="revealBtn" onclick="revealAnswer()">اعرض الإجابة</button>
 
     <div class="judge-row hidden" id="judgeRow">
-      <button class="btn btn-correct" onclick="resolveAnswer(true)">✅ إجابة صحيحة</button>
-      <button class="btn btn-wrong" onclick="resolveAnswer(false)">❌ إجابة خاطئة</button>
+      <button class="btn btn-correct" onclick="resolveAnswer(true)">إجابة صحيحة</button>
+      <button class="btn btn-wrong" onclick="resolveAnswer(false)">إجابة خاطئة</button>
     </div>
+
+    <button class="btn-text" onclick="cancelQuestion()">إلغاء — أعد الخلية</button>
   </div>
 </div>
 
 
 <!-- ============================ نتيجة الجولة ============================ -->
 <div class="q-overlay" id="roundOverlay">
-  <div class="q-box round-box-modal">
+  <div class="q-box round-modal">
     <div class="round-icon" id="roundIcon">🎉</div>
     <h3 class="round-title" id="roundTitle"></h3>
     <div class="round-score" id="roundScore"></div>
     <button class="btn btn-primary btn-big" id="roundNextBtn"
             onclick="document.getElementById('roundOverlay').classList.remove('show'); nextRound();">
-      الجولة التالية ←
+      الجولة التالية
     </button>
   </div>
 </div>
 
 
-<script src="js/utils.js?v=2"></script>
-<script src="js/hive.js?v=2"></script>
-<script src="js/game.js?v=2"></script>
-<script src="js/ui.js?v=2"></script>
-<script src="js/setup.js?v=2"></script>
+<script src="js/themes.js?v=3"></script>
+<script src="js/utils.js?v=3"></script>
+<script src="js/hive.js?v=3"></script>
+<script src="js/game.js?v=3"></script>
+<script src="js/ui.js?v=3"></script>
+<script src="js/setup.js?v=3"></script>
 
 <script>
 /* تسجيل عامل الخدمة — يخزّن اللعبة على الجهاز فتعمل بلا إنترنت.
-   نلفّه في try لأن الملف يُفتح أحياناً عبر file:// أثناء التطوير،
+   نتحقق من البروتوكول لأن الملف يُفتح أحياناً عبر file:// أثناء التطوير،
    وهناك serviceWorker غير متاح ويرمي خطأ يوقف بقية السكربت. */
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => {

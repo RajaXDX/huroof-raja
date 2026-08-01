@@ -7,10 +7,11 @@
   يعني إعادة رسم عشرة ملفات وضمان تطابقها. هنا يُعدَّل ثابت واحد ويُعاد
   التشغيل.
 
-التصميم: مسدس ذهبي مصمت على خلفية خضراء داكنة، وحرف «ح» أخضر داخله.
-  التباين عالٍ عمداً — الأيقونة تُقرأ على 60 بكسل في شاشة الجوال.
+التصميم: مسدس بلون الثيم الأساسي على خلفية داكنة، وحرف «ح» داخله بخط
+  Cairo 900. الألوان مأخوذة من ثيم neon في js/themes.js، والتباين عالٍ
+  عمداً — الأيقونة تُقرأ على 60 بكسل في شاشة الجوال.
 
-تشغيل:  python .build/make_icons.py
+تشغيل:  python tools/make-icons.py
 """
 
 import math
@@ -19,22 +20,23 @@ import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FONT = ROOT / '.build' / 'Tajawal-Bold.ttf'
+FONT = ROOT / '.build' / 'Cairo-Black.ttf'
 OUT = ROOT / 'assets' / 'icons'
 OUT.mkdir(parents=True, exist_ok=True)
 
 # ننزّل الخط عند الحاجة بدل حفظه في المستودع: ملف ثنائي 200 كيلوبايت
 # لا يُقرأ ولا يُراجع في المراجعات، وهو متاح دائماً من مصدره الرسمي.
-FONT_URL = 'https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Bold.ttf'
+FONT_URL = 'https://github.com/google/fonts/raw/main/ofl/cairo/Cairo%5Bslnt,wght%5D.ttf'
 if not FONT.exists():
     FONT.parent.mkdir(parents=True, exist_ok=True)
-    print('downloading Tajawal-Bold.ttf ...')
+    print('downloading Cairo ...')
     urllib.request.urlretrieve(FONT_URL, FONT)
 
-# هوية «رجا» — نفس متغيّرات css/style.css
-NIGHT = (10, 26, 20)
-PANEL = (23, 63, 47)
-GOLD = (212, 175, 55)
+# ثيم neon من js/themes.js — الأيقونة تتبع الثيم الافتراضي للتطبيق
+NIGHT = (8, 11, 18)      # bg[2]
+PANEL = (34, 41, 58)     # bg[0]
+GOLD = (134, 239, 172)   # accent
+ON_ACCENT = (8, 21, 14)  # onAccent — لون الحرف فوق اللون الأساسي
 LETTER = 'ح'
 
 
@@ -73,8 +75,16 @@ def build(size, hex_ratio=0.78, supersample=4):
     # نقيس الحرف فعلياً ونتوسّط بصندوقه، لا بارتفاع السطر — وإلا بدا مزاحاً
     fs = int(r * 1.15)
     font = ImageFont.truetype(str(FONT), fs)
+
+    # Cairo خط متغيّر، وبلا ضبط المحور يُرسم بالوزن العادي فيخرج الحرف
+    # رفيعاً لا يُقرأ على 60 بكسل. المواصفة تطلب Cairo 900.
+    try:
+        font.set_variation_by_axes([900])
+    except Exception:
+        pass
+
     x0, y0, x1, y1 = d.textbbox((0, 0), LETTER, font=font)
-    d.text((s / 2 - (x0 + x1) / 2, s / 2 - (y0 + y1) / 2), LETTER, font=font, fill=NIGHT)
+    d.text((s / 2 - (x0 + x1) / 2, s / 2 - (y0 + y1) / 2), LETTER, font=font, fill=ON_ACCENT)
 
     return img.resize((size, size), Image.LANCZOS)
 
