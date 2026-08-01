@@ -1,0 +1,164 @@
+# ==========================================================================
+# بناء تطبيق iOS ورفعه إلى App Store Connect
+# --------------------------------------------------------------------------
+# صاحب المشروع يعمل على ويندوز، و Xcode حصري لـ macOS. هذا السير يستأجر
+# جهاز ماك من GitHub (مجاني للمستودعات العامة) فيبني ويوقّع ويرفع.
+#
+# قبل أول تشغيل يجب إضافة الأسرار في:
+#   Settings → Secrets and variables → Actions → New repository secret
+#
+#   BUILD_CERTIFICATE_BASE64   شهادة التوزيع .p12 مُرمّزة base64
+#   P12_PASSWORD               كلمة مرور ملف .p12
+#   PROVISIONING_PROFILE_BASE64  ملف .mobileprovision مُرمّزاً base64
+#   KEYCHAIN_PASSWORD          أي كلمة تخترعها لسلسلة المفاتيح المؤقتة
+#   APPSTORE_ISSUER_ID         من App Store Connect → Users and Access → Keys
+#   APPSTORE_KEY_ID            المعرّف نفسه
+#   APPSTORE_PRIVATE_KEY       محتوى ملف .p8 كاملاً
+#   TEAM_ID                    من developer.apple.com → Membership
+#
+# التفاصيل خطوة بخطوة في APPSTORE.md
+# ==========================================================================
+
+name: iOS
+
+on:
+  workflow_dispatch:          # يُشغَّل يدوياً من تبويب Actions
+    inputs:
+      upload:
+        description: 'ارفع إلى App Store Connect بعد البناء'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    # صورة ماك من GitHub. الدقيقة تُحتسب مضاعفة على المستودعات الخاصة،
+    # ومجانية بلا حدّ على العامة.
+    runs-on: macos-15
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: تثبيت اعتماديات Node
+        run: npm ci
+
+      - name: تجميع ملفات اللعبة في www
+        run: python3 tools/build-www.py
+
+      - name: مزامنة Capacitor مع مشروع iOS
+        run: npx cap sync ios
+
+      # ------------------------------------------------------------------
+      # بلا أسرار نبني بلا توقيع: يثبت أن الكود يُترجم ويكتشف الأعطال مبكراً
+      # دون الحاجة إلى حساب مطوّر. هذا ما يعمل قبل أن تدفع الـ99 دولاراً.
+      # ------------------------------------------------------------------
+      - name: بناء بلا توقيع (فحص الترجمة)
+        if: ${{ !inputs.upload }}
+        run: |
+          cd ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      # ------------------------------------------------------------------
+      # المسار الموقَّع: يحتاج كل الأسرار أعلاه
+      # ------------------------------------------------------------------
+      - name: تركيب الشهادة وملف التزويد
+        if: ${{ inputs.upload }}
+        env:
+          CERT_B64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROFILE_B64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH=$RUNNER_TEMP/cert.p12
+          PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
+          KEYCHAIN=$RUNNER_TEMP/build.keychain-db
+
+          echo -n "$CERT_B64" | base64 --decode -o $CERT_PATH
+          echo -n "$PROFILE_B64" | base64 --decode -o $PROFILE_PATH
+
+          # سلسلة مفاتيح مؤقتة تموت مع الجهاز الافتراضي بعد انتهاء التشغيل
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security set-keychain-settings -lut 21600 $KEYCHAIN
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security import $CERT_PATH -P "$P12_PASSWORD" -A \
+            -t cert -f pkcs12 -k $KEYCHAIN
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security list-keychain -d user -s $KEYCHAIN
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: ترقيم البناء برقم التشغيل
+        if: ${{ inputs.upload }}
+        run: |
+          # App Store Connect يرفض رفع نفس رقم البناء مرتين. رقم تشغيل
+          # السير يتزايد أبداً فيصلح معرّفاً بلا تدخّل يدوي.
+          cd ios/App
+          /usr/libexec/PlistBuddy -c \
+            "Set :CFBundleVersion ${{ github.run_number }}" App/Info.plist \
+            2>/dev/null || true
+          xcrun agvtool new-version -all ${{ github.run_number }}
+
+      - name: أرشفة التطبيق
+        if: ${{ inputs.upload }}
+        run: |
+          cd ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }} \
+            archive
+
+      - name: تصدير ملف ipa
+        if: ${{ inputs.upload }}
+        run: |
+          cat > $RUNNER_TEMP/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${{ secrets.TEAM_ID }}</string>
+            <key>uploadSymbols</key><true/>
+            <key>signingStyle</key><string>automatic</string>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export
+
+      - name: الرفع إلى App Store Connect
+        if: ${{ inputs.upload }}
+        env:
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/private_keys
+          echo -n "$PRIVATE_KEY" > ~/private_keys/AuthKey_$KEY_ID.p8
+          xcrun altool --upload-app -f $RUNNER_TEMP/export/*.ipa \
+            -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+
+      - name: حفظ الناتج
+        if: ${{ inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 14

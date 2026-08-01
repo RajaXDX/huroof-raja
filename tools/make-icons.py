@@ -117,6 +117,27 @@ for name, (w, h) in {'splash-2732.png': (2732, 2732)}.items():
     splash(w, h).save(p, optimize=True)
     made.append(p)
 
+# ---- أصول iOS ----
+# نولّدها هنا لا في أداة منفصلة: الأيقونة والشعار مصدر واحد، وأي تغيّر في
+# الهوية يجب أن يصل الويب والتطبيق معاً وإلا اختلف شكلهما بلا أن ينتبه أحد.
+IOS = ROOT / 'ios' / 'App' / 'App' / 'Assets.xcassets'
+if IOS.is_dir():
+    # أيقونة التطبيق: آبل تطلب 1024×1024 مصمتة بلا شفافية ولا زوايا مدوّرة
+    # (النظام يقصّها بنفسه). حفظها RGB يضمن غياب قناة ألفا.
+    p = IOS / 'AppIcon.appiconset' / 'AppIcon-512@2x.png'
+    build(1024).convert('RGB').save(p, optimize=True)
+    made.append(p)
+
+    # شاشة البداية: مربّعة 2732 تُقصّ لأي مقاس شاشة. الملفات الثلاثة
+    # المطلوبة في الكتالوج متطابقة عمداً — الفرق بينها في سلّم العرض فقط.
+    splash_img = splash(2732, 2732)
+    for name in ('splash-2732x2732.png',
+                 'splash-2732x2732-1.png',
+                 'splash-2732x2732-2.png'):
+        p = IOS / 'Splash.imageset' / name
+        splash_img.convert('RGB').save(p, optimize=True)
+        made.append(p)
+
 total = sum(f.stat().st_size for f in made)
 for f in made:
     print(f'  {f.name:<26} {f.stat().st_size/1024:8.1f} KB')
