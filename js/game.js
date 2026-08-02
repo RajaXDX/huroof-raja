@@ -242,24 +242,33 @@ function revealAnswer() {
 }
 
 /**
+ * يستبدل سؤال الخلية بسؤال آخر من نفس الحرف.
+ *
+ * يُستدعى كلما فُتح سؤال ثم بقيت الخلية متاحة بلا مالك. السبب: السؤال
+ * عُرض على الطاولة وربما كُشفت إجابته، فإعادة عرضه نفسه يجعل الفتحة
+ * الثانية بلا معنى — الجميع يعرف الجواب.
+ *
+ * `drawQuestion` تتجنّب المكرر داخل المباراة أصلاً، فالسؤال الجديد مختلف
+ * ما لم تنفد أسئلة الحرف فتُعاد دورتها.
+ */
+function refreshQuestion(index) {
+  const next = drawQuestion(Game.letters[index]);
+  if (next) Game.questions[index] = next;
+}
+
+/**
  * يغلق السؤال ويعيد الخلية كما كانت بلا حكم ولا تبديل دور.
- * موجود لأن المقدّم قد يفتح خلية بالخطأ، أو يجد السؤال مكروراً أو غامضاً.
- * لا يستهلك السؤال: نعيده إلى المتاح حتى لا يُفقد من البنك.
+ * موجود لأن المقدّم قد يفتح خلية بالخطأ، أو يجد السؤال غامضاً.
  */
 function cancelQuestion() {
   if (Game.activeCell === null) return;
   stopTimer();
 
-  const q = Game.questions[Game.activeCell];
-  if (q && usedQuestions[q.letter]) {
-    const list = BANK[q.letter] || [];
-    const idx = list.findIndex(x => x.q === q.q);
-    if (idx >= 0) usedQuestions[q.letter].delete(idx);
-  }
-
+  const index = Game.activeCell;
   Game.activeCell = null;
   Game.answerShown = false;
   UI.closeQuestion();
+  refreshQuestion(index);
 }
 
 /**
@@ -289,6 +298,10 @@ function resolveAnswer(correct) {
   UI.closeQuestion();
   UI.paintCell(index);
   UI.renderStatus();
+
+  // قاعدة «تبقى متاحة» تترك الخلية بلا مالك. سؤالها عُرض وكُشفت إجابته،
+  // فنبدّله حتى لا تكون الفتحة التالية مجرد إعادة لما سمعه الجميع.
+  if (Game.owners[index] === null) refreshQuestion(index);
 
   const finished = checkRoundEnd();
   if (!finished) {

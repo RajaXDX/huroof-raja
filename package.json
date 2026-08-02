@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "build": "python tools/build-www.py",
+    "test": "node tools/test.js",
+    "shots": "node tools/screenshots.js",
     "sync": "npm run build && cap sync ios",
     "open:ios": "cap open ios"
   },
