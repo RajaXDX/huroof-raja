@@ -32,14 +32,18 @@ const UI = (function () {
     const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
 
-    // نقيس ارتفاع التذييل فعلياً بدل ثابت مخمَّن. الثابت كان يترك أكثر
-    // من مئة بكسل فاضية أسفل اللوحة على الجوال.
-    const foot = document.querySelector('.board-foot');
-    const footH = foot ? foot.getBoundingClientRect().height + 28 : 0;
-
     const availW = stage.clientWidth - padX - FRAME;
-    const availH = window.innerHeight - stage.getBoundingClientRect().top
-                   - padY - footH - FRAME;
+
+    /* المساحة الرأسية نسألها من الحاوية نفسها لا نحسبها من ارتفاع النافذة.
+       الحاوية عنصر مرن (flex: 1) فارتفاعها محسوم قبل أن نرسم اللوحة، وطرح
+       الهيدر والتذييل يدوياً كان يخطئ بعشرات البكسلات فيظهر تمرير رأسي
+       أثناء اللعب. clientHeight يشمل الحشوة فنطرحها. */
+    let availH = stage.clientHeight - padY - FRAME;
+
+    // احتياط لو استُدعيت قبل أن تُحسب أبعاد الحاوية (شاشة مخفية مثلاً)
+    if (availH <= 0) {
+      availH = window.innerHeight - stage.getBoundingClientRect().top - padY - FRAME;
+    }
 
     // عرض اللوحة = cols×(w+gap) − gap + (w+gap)/2
     const byWidth = (availW + GAP - GAP / 2) / (cols + 0.5) - GAP;
@@ -55,6 +59,12 @@ const UI = (function () {
   function renderBoard() {
     const board = $('board');
     board.innerHTML = '';
+
+    /* نصفّر مقاس اللوحة قبل قياس الحاوية. اللوحة عنصر مرن بمقاس صريح
+       بالبكسل، فما دامت تحمل مقاس الرسم السابق تمنع الحاوية من الانكماش
+       ونقيس مساحة أكبر من الحقيقية — حلقة تنتهي بتمرير رأسي دائم. */
+    board.style.width = '0px';
+    board.style.height = '0px';
 
     const w = computeHexWidth(Game.rows, Game.cols);
     layoutCache = Hive.layout(Game.cells, Game.rows, Game.cols, w, GAP);

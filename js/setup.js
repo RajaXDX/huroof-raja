@@ -218,6 +218,14 @@ function goBoard() {
   syncTabs();
 }
 
+/** يقيس ارتفاع الشريط الزخرفي والهيدر ليعرف باقي الشاشة ارتفاعه المتاح */
+function measureChrome() {
+  const deco = document.querySelector('.deco-bar');
+  const head = document.querySelector('.app-header');
+  const h = (deco ? deco.offsetHeight : 0) + (head ? head.offsetHeight : 0);
+  document.documentElement.style.setProperty('--chrome-h', h + 'px');
+}
+
 /** يبرز التبويب المطابق للشاشة الظاهرة */
 function syncTabs() {
   const active = document.querySelector('.screen.active');
@@ -263,6 +271,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   renderSetup();
   syncTabs();
+  measureChrome();
+  window.addEventListener('resize', measureChrome);
 
   // اختصارات المقدّم. لا نربط Escape بالإغلاق عمداً: إغلاق السؤال بلا حكم
   // يعني تهرّباً من الخلية، والدور لا يتقدّم — فتعلق اللعبة.

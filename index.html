@@ -22,8 +22,8 @@
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- الخطوط محزومة محلياً لا من Google — اللعبة يجب أن تعمل بلا إنترنت -->
-  <link rel="stylesheet" href="css/fonts.css?v=3">
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/fonts.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 
@@ -349,23 +349,36 @@
 </div>
 
 
-<script src="js/themes.js?v=3"></script>
-<script src="js/utils.js?v=3"></script>
-<script src="js/hive.js?v=3"></script>
-<script src="js/game.js?v=3"></script>
-<script src="js/ui.js?v=3"></script>
-<script src="js/setup.js?v=3"></script>
+<script src="js/themes.js?v=4"></script>
+<script src="js/utils.js?v=4"></script>
+<script src="js/hive.js?v=4"></script>
+<script src="js/game.js?v=4"></script>
+<script src="js/ui.js?v=4"></script>
+<script src="js/setup.js?v=4"></script>
 
 <script>
 /* تسجيل عامل الخدمة — يخزّن اللعبة على الجهاز فتعمل بلا إنترنت.
-   نتحقق من البروتوكول لأن الملف يُفتح أحياناً عبر file:// أثناء التطوير،
-   وهناك serviceWorker غير متاح ويرمي خطأ يوقف بقية السكربت. */
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+
+   لا نسجّله على العناوين المحلية. عامل الخدمة يخدم من المخزن أولاً ويتجاهل
+   سلسلة الاستعلام (ignoreSearch)، فحتى رفع ‏?v=‏ لا يكسر المخزن أثناء
+   التطوير: تُعدَّل الملفات ويظل المتصفح يعرض النسخة القديمة بلا أي مؤشر.
+   ضاعت ساعة في مطاردة هذا الوهم، فلا يُعاد.
+
+   نتحقق من البروتوكول أيضاً لأن الملف يُفتح أحياناً عبر file:// وهناك
+   serviceWorker غير متاح ويرمي خطأ يوقف بقية السكربت. */
+const IS_LOCAL = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !IS_LOCAL) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(err => {
       console.warn('تعذّر تسجيل عامل الخدمة:', err);
     });
   });
+} else if ('serviceWorker' in navigator && IS_LOCAL) {
+  // ننظّف أي عامل خدمة سجّلته نسخة سابقة على نفس العنوان المحلي
+  navigator.serviceWorker.getRegistrations()
+    .then(rs => rs.forEach(r => r.unregister()))
+    .catch(() => {});
 }
 </script>
 </body>

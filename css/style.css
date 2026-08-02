@@ -97,6 +97,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 .brand-name {
   font-family: 'Cairo', sans-serif; font-weight: 900; font-size: 19px;
   letter-spacing: .5px; color: var(--head); line-height: 1.2;
+  white-space: nowrap;   /* كان ينكسر إلى «حروف / مع رجا» على الجوال */
 }
 .brand-tag { font-size: 12px; color: var(--muted); }
 
@@ -361,7 +362,20 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
   50%      { box-shadow: 0 0 10px 2px var(--accent-glow); }
 }
 
-.board-stage { display: grid; place-items: center; padding: 30px 12px 0; }
+#screen-game.active {
+  display: flex; flex-direction: column;
+  /* --chrome-h يقيسه js/setup.js من الشريط الزخرفي والهيدر معاً. الرقم
+     الثابت لا يصلح: الهيدر يقصر على الجوال فيظهر تمرير رأسي زائد. */
+  min-height: calc(100vh - var(--chrome-h, 101px));
+}
+.wrap-board {
+  flex: 1; display: flex; flex-direction: column; width: 100%;
+  min-height: 0;   /* بدونها لا ينكمش العنصر تحت حجم محتواه */
+}
+.board-stage {
+  flex: 1; display: grid; place-items: center; padding: 24px 12px;
+  min-height: 0;
+}
 
 /* الأشرطة إخوة للوحة لا عناصر مطلقة فوقها: تتمدّد معها تلقائياً
    ولا تحتاج إعادة حساب عند تغيّر المقاس. */
@@ -449,6 +463,10 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 }
 
 .judge-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 26px; }
+
+/* زر كشف الإجابة يأخذ نفس مسافة أزرار الحكم. بلا هامش كان يلامس التلميح
+   ويقصّ ذيول حروفه. */
+#revealBtn { margin-top: 26px; }
 .btn-correct {
   background: var(--team1); color: var(--on-accent);
   font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 15px;
@@ -537,7 +555,12 @@ kbd {
 
 @media (max-width: 860px) {
   .setup-grid { grid-template-columns: 1fr; }
-  .app-header { padding: 14px 18px; }
+  .app-header { padding: 14px 16px; gap: 10px; }
+  .brand-hex { width: 38px; height: 43px; font-size: 19px; }
+  .brand-name { font-size: 16px; }
+  .brand-tag { font-size: 11px; }
+  .tab { padding: 8px 12px; font-size: 12px; }
+  .tabs { gap: 4px; padding: 4px; }
   .wrap { padding: 22px 16px; }
   .wrap-home { padding-top: 34px; }
 
@@ -548,7 +571,11 @@ kbd {
   }
   .team-card-a, .team-card-b { align-items: center; }
   .team-score { font-size: 24px; }
-  .round-box { order: -1; }
+  .round-box {
+    order: -1; grid-auto-flow: column; justify-content: space-between;
+    justify-items: stretch; align-items: center; width: 100%;
+    padding: 0 4px;
+  }
 
   .board-stage { padding: 16px 6px; }
   .q-box { padding: 22px; }
