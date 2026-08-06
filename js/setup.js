@@ -332,9 +332,16 @@ async function leaveRoom() {
   goHome();
 }
 
+// عنوان النسخة المنشورة — يلزم داخل التطبيق وحده (انظر `roomLink`)
+const WEB_BASE = 'https://rajaxdx.github.io/huroof-raja/';
+
 function roomLink() {
   const r = Net.room();
-  return location.origin + location.pathname + '?room=' + (r ? r.code : '');
+  /* ⚠️ داخل التطبيق `location.origin` هو `capacitor://localhost` — رابط
+     دعوة به لا يفتح عند أحد إطلاقاً. فنرسل عنوان الويب المنشور، وهو يفتح
+     عند كل من يستقبله سواء ثبّت التطبيق أو لا. */
+  const base = isNativeApp() ? WEB_BASE : location.origin + location.pathname;
+  return base + '?room=' + (r ? r.code : '');
 }
 
 async function copyRoomCode() {
@@ -354,11 +361,29 @@ async function copyRoomCode() {
   }
 }
 
+/** هل نحن داخل تطبيق مُحزَّم (Capacitor) لا في متصفح؟ */
+function isNativeApp() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform &&
+            window.Capacitor.isNativePlatform());
+}
+
 function shareRoom() {
   const r = Net.room();
   const text = 'العب معي حروف مع رجا 🔤\nكود الروم: ' + (r ? r.code : '') + '\n' + roomLink();
-  if (navigator.share) navigator.share({ title: 'حروف مع رجا', text: text }).catch(() => {});
-  else window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+
+  if (navigator.share) {
+    navigator.share({ title: 'حروف مع رجا', text: text }).catch(() => {});
+    return;
+  }
+
+  /* ⚠️ **لا `window.open` داخل التطبيق.** في WKWebView ينقل الرابط
+     العرضَ نفسه إلى صفحة واتساب، فيخرج اللاعب من اللعبة بلا زر رجوع
+     ويظنّ التطبيق تعطّل. في المتصفح لا بأس — وهناك الفتحة تبويب جديد. */
+  if (isNativeApp()) {
+    copyRoomCode();
+    return;
+  }
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }
 
 function refreshResumeBox() {

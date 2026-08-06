@@ -11,7 +11,7 @@
    إلى الأبد — وهذا أشهر خطأ في عمّال الخدمة.
    ========================================================================== */
 
-const CACHE_VERSION = 'huroof-v4';
+const CACHE_VERSION = 'huroof-v6';
 
 const ASSETS = [
   './',
@@ -28,6 +28,7 @@ const ASSETS = [
   './js/online.js',
   './js/setup.js',
   './data/questions.json',
+  './assets/vendor/supabase.js',
   './assets/fonts/almarai-300-arabic.woff2',
   './assets/fonts/almarai-300-latin.woff2',
   './assets/fonts/almarai-400-arabic.woff2',
