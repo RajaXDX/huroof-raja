@@ -234,6 +234,14 @@ const UI = (function () {
       $('roundScore').textContent =
         SETTINGS.teamA.name + ' ' + Game.wins.A + '  —  ' + Game.wins.B + ' ' + SETTINGS.teamB.name;
       $('roundNextBtn').textContent = isLast ? 'النتيجة النهائية' : 'الجولة التالية';
+
+      /* ⚠️ زر التقدّم للمقدّم وحده. `nextRound` محروسة أصلاً، لكن الزر
+         يُغلق الإعلان **قبل** أن تُنادى — فكان الضيف يضغط فيختفي الإعلان
+         عنده وتبقى المباراة واقفة، ويظنّها معطّلة. */
+      const judge = Online.isJudge();
+      $('roundNextBtn').classList.toggle('hidden', !judge);
+      $('roundWait').classList.toggle('hidden', judge);
+
       $('roundOverlay').classList.add('show');
     }, (Game.winPath ? Game.winPath.length * 110 : 0) + 600);
   }
@@ -242,6 +250,13 @@ const UI = (function () {
     $('roundOverlay').classList.remove('show');
     showScreen('screen-end');
     syncTabs();
+
+    // «مباراة جديدة» و«الإعدادات» للمقدّم وحده — غيره لا يملك بدء شيء
+    const judge = Online.isJudge();
+    document.querySelectorAll('#screen-end .nav .btn').forEach(b => {
+      const home = /الرئيسية/.test(b.textContent);
+      b.classList.toggle('hidden', !judge && !home);
+    });
 
     const a = Game.wins.A, b = Game.wins.B;
     const w = a === b ? null : (a > b ? 'A' : 'B');
@@ -255,6 +270,96 @@ const UI = (function () {
       '<span style="color:' + teamColor('B') + '">' + b + ' ' + escapeHtml(SETTINGS.teamB.name) + '</span>';
 
     Sound.win();
+  }
+
+  /* ------------------------------------------------------------ الأونلاين */
+
+  /* يعكس دورك على الشاشة: من يختار، ومن يحكم، ومن يشاهد.
+     ⚠️ العرض فقط — المنع الحقيقي في `selectCell` و`resolveAnswer`. لو
+     اكتُفي بإخفاء الأزرار لأمكن استدعاء الدوال من الكونسول. */
+  function applyRole() {
+    const online = Online.active();
+    const judge = Online.isJudge();
+    const canPick = Online.canPick();
+
+    document.body.classList.toggle('is-online', online);
+    document.body.classList.toggle('is-viewer', online && !canPick);
+    $('questionModal').classList.toggle('role-viewer', online && !judge);
+
+    if (online && Game.phase === 'playing') {
+      const bar = $('turnBar');
+      const mine = Net.myTeam() === Game.turn;
+      bar.textContent = mine
+        ? 'دوركم — اختر خلية (' + teamName(Game.turn) + ')'
+        : 'دور ' + teamName(Game.turn) + ' — انتظر';
+      bar.style.background = teamColor(Game.turn);
+    }
+  }
+
+  /* شريط صغير دائم يقول: أنت في روم كذا، وأنت في فريق كذا */
+  function renderRoomBar() {
+    const bar = $('roomBar');
+    if (!bar) return;
+
+    if (!Online.active()) { bar.classList.add('hidden'); return; }
+    bar.classList.remove('hidden');
+
+    const team = Net.myTeam();
+    $('roomBarCode').textContent = Net.room().code;
+    $('roomBarRole').textContent =
+      (Net.isHost() ? 'المقدّم · ' : '') +
+      (team ? teamName(team) : 'مشاهد');
+    $('roomBarRole').style.color = team ? teamColor(team) : 'var(--muted)';
+  }
+
+  function renderLobby() {
+    const room = Net.room();
+    if (!room) return;
+
+    $('roomCode').textContent = room.code;
+    $('lobbyCount').textContent = room.players.length;
+
+    const host = Net.isHost();
+    $('lobbyHostBox').classList.toggle('hidden', !host);
+    $('lobbyGuestBox').classList.toggle('hidden', host);
+
+    ['A', 'B'].forEach(t => {
+      const box = $('teamList' + t);
+      box.innerHTML = '';
+      $('teamTitle' + t).textContent = teamName(t);
+      $('teamTitle' + t).style.color = teamColor(t);
+
+      const members = room.players.filter(p => p.team === t);
+      if (!members.length) {
+        box.appendChild(el('div', { class: 'lobby-empty' }, 'لا أحد بعد'));
+      }
+
+      members.forEach(p => {
+        const row = el('div', { class: 'lobby-player' + (p.seat === Net.seat() ? ' is-me' : '') });
+        row.appendChild(el('span', { class: 'lp-dot' + (p.online ? ' on' : '') }));
+        row.appendChild(el('span', { class: 'lp-name' },
+          escapeHtml(p.name) + (p.seat === 0 ? ' <b>· المقدّم</b>' : '') +
+          (p.seat === Net.seat() ? ' <i>(أنت)</i>' : '')));
+
+        // المضيف وحده ينقل اللاعبين — والزر لا يظهر لغيره أصلاً
+        if (host) {
+          const move = el('button', { class: 'btn btn-ghost btn-tiny' },
+            t === 'A' ? '→ ' + teamName('B') : '← ' + teamName('A'));
+          move.onclick = () => movePlayer(p.seat, t === 'A' ? 'B' : 'A');
+          row.appendChild(move);
+        }
+        box.appendChild(row);
+      });
+    });
+
+    const ready = room.players.filter(p => p.team === 'A').length > 0 &&
+                  room.players.filter(p => p.team === 'B').length > 0;
+    if (host) {
+      $('lobbyStartBtn').disabled = !ready;
+      $('lobbyHint').textContent = ready
+        ? 'الفريقان جاهزان — تقدر تبدأ'
+        : 'كل فريق يحتاج لاعباً واحداً على الأقل';
+    }
   }
 
   /* ---------------------------------------------------------- استجابة */
@@ -273,5 +378,6 @@ const UI = (function () {
     renderBoard, renderStatus, renderRound, paintCell, highlightPath,
     openQuestion, showAnswer, closeQuestion, updateTimer,
     showRoundResult, showMatchResult,
+    applyRole, renderLobby, renderRoomBar,
   };
 })();

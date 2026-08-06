@@ -22,8 +22,8 @@
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- الخطوط محزومة محلياً لا من Google — اللعبة يجب أن تعمل بلا إنترنت -->
-  <link rel="stylesheet" href="css/fonts.css?v=5">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/fonts.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 
@@ -45,6 +45,13 @@
   </nav>
 </header>
 
+<!-- شريط الروم: يظهر أونلاين فقط ويبقى ظاهراً في كل الشاشات -->
+<div class="room-bar hidden" id="roomBar">
+  <span class="rb-code">روم <b id="roomBarCode"></b></span>
+  <span class="rb-role" id="roomBarRole"></span>
+  <button class="btn-text rb-exit" onclick="leaveRoom()">خروج</button>
+</div>
+
 
 <!-- ============================ الرئيسية ============================ -->
 <div class="screen active" id="screen-home">
@@ -57,8 +64,17 @@
     <p class="hero-sub">صِل حروفك من طرف إلى طرف قبل خصمك — جولات من الذكاء والسرعة.</p>
 
     <div class="home-buttons">
-      <button class="btn btn-primary btn-big" onclick="goSetup()">لعبة جديدة</button>
+      <button class="btn btn-primary btn-big" onclick="goSetup()">على جهاز واحد</button>
+      <button class="btn btn-primary btn-big" onclick="goOnline()">أونلاين — كل واحد بجواله</button>
       <button class="btn btn-ghost btn-big" onclick="goHowTo()">كيف نلعب؟</button>
+    </div>
+
+    <div class="resume-box hidden" id="resumeBox">
+      <span>عندك روم مفتوحة <b id="resumeCode"></b></span>
+      <span class="resume-actions">
+        <button class="btn btn-primary btn-tiny" onclick="resumeRoom()">ارجع لها</button>
+        <button class="btn btn-ghost btn-tiny" onclick="dropRoomSession()">تجاهل</button>
+      </span>
     </div>
 
     <div class="home-stats">
@@ -146,6 +162,88 @@
     <div class="nav">
       <button class="btn btn-ghost" onclick="goHome()">رجوع</button>
       <button class="btn btn-primary" onclick="goSetup()">ابدأ اللعب</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================ أونلاين ============================ -->
+<div class="screen" id="screen-online">
+  <div class="wrap wrap-narrow">
+    <h2 class="page-title">اللعب أونلاين</h2>
+    <p class="page-sub">المضيف ينشئ روم ويرسل الكود، والبقية يدخلون من جوالاتهم</p>
+
+    <div class="card">
+      <div class="team-field">
+        <div class="team-label">اسمك</div>
+        <div class="name-input">
+          <span class="dot"></span>
+          <input type="text" id="onlineName" maxlength="18" placeholder="اكتب اسمك">
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-big" id="createRoomBtn"
+              onclick="hostCreateRoom()">أنشئ روم</button>
+
+      <div class="or-line"><span>أو</span></div>
+
+      <div class="team-field">
+        <div class="team-label">كود الروم</div>
+        <input type="text" id="joinCode" class="code-input" maxlength="6"
+               placeholder="ABC123" autocomplete="off" spellcheck="false">
+      </div>
+      <button class="btn btn-ghost btn-big" id="joinRoomBtn"
+              onclick="submitJoinRoom()">ادخل بالكود</button>
+    </div>
+
+    <p class="online-note">
+      الأونلاين يحتاج إنترنت. واللعب على جهاز واحد يبقى شغّالاً بلا اتصال إطلاقاً.
+    </p>
+
+    <div class="nav">
+      <button class="btn btn-ghost" onclick="goHome()">رجوع</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================ الروم ============================ -->
+<div class="screen" id="screen-room">
+  <div class="wrap wrap-narrow">
+    <div class="room-code-box">
+      <div class="room-code-label">كود الروم</div>
+      <div class="room-code" id="roomCode">——————</div>
+      <div class="room-code-actions">
+        <button class="btn btn-ghost btn-tiny" onclick="copyRoomCode()">📋 نسخ</button>
+        <button class="btn btn-ghost btn-tiny" onclick="shareRoom()">📤 مشاركة</button>
+      </div>
+      <div class="room-count"><span id="lobbyCount">1</span> من 8 لاعبين</div>
+    </div>
+
+    <div class="lobby-teams">
+      <div class="lobby-team">
+        <div class="lobby-team-title" id="teamTitleA">الفريق الأول</div>
+        <div id="teamListA"></div>
+      </div>
+      <div class="lobby-team">
+        <div class="lobby-team-title" id="teamTitleB">الفريق الثاني</div>
+        <div id="teamListB"></div>
+      </div>
+    </div>
+
+    <div id="lobbyHostBox" class="hidden">
+      <button class="btn btn-primary btn-big" id="lobbyStartBtn"
+              onclick="lobbyStart()">ابدأ المباراة</button>
+      <p class="lobby-hint" id="lobbyHint"></p>
+      <button class="btn-text" onclick="goSetup()">إعدادات المباراة</button>
+    </div>
+
+    <div id="lobbyGuestBox" class="hidden">
+      <p class="lobby-waiting">بانتظار المقدّم يبدأ المباراة…</p>
+    </div>
+
+    <div class="nav">
+      <button class="btn btn-ghost" onclick="leaveRoom()">اخرج من الروم</button>
     </div>
   </div>
 </div>
@@ -345,16 +443,20 @@
             onclick="document.getElementById('roundOverlay').classList.remove('show'); nextRound();">
       الجولة التالية
     </button>
+    <p class="lobby-waiting hidden" id="roundWait">بانتظار المقدّم…</p>
   </div>
 </div>
 
 
-<script src="js/themes.js?v=5"></script>
-<script src="js/utils.js?v=5"></script>
-<script src="js/hive.js?v=5"></script>
-<script src="js/game.js?v=5"></script>
-<script src="js/ui.js?v=5"></script>
-<script src="js/setup.js?v=5"></script>
+<script src="js/themes.js?v=6"></script>
+<script src="js/utils.js?v=6"></script>
+<script src="js/hive.js?v=6"></script>
+<script src="js/game.js?v=6"></script>
+<script src="js/ui.js?v=6"></script>
+<!-- net قبل online: الأخير يسجّل مستمعيه على الأول لحظة التحميل -->
+<script src="js/net.js?v=6"></script>
+<script src="js/online.js?v=6"></script>
+<script src="js/setup.js?v=6"></script>
 
 <script>
 /* تسجيل عامل الخدمة — يخزّن اللعبة على الجهاز فتعمل بلا إنترنت.

@@ -195,7 +195,7 @@ function toggleSound() {
 
 /* ------------------------------------------------------------- التنقّل */
 
-function goHome()  { Sound.click(); showScreen('screen-home'); syncTabs(); }
+function goHome()  { Sound.click(); showScreen('screen-home'); syncTabs(); refreshResumeBox(); }
 function goHowTo() { Sound.click(); showScreen('screen-howto'); syncTabs(); }
 
 function goSetup() {
@@ -254,7 +254,131 @@ async function quitMatch() {
   Game.phase = 'idle';
   $('roundOverlay').classList.remove('show');
   UI.closeQuestion();
+
+  // أونلاين: العودة للردهة لا للإعدادات — الروم قائمة والباقون فيها
+  if (Online.active()) {
+    Online.publish('waiting');
+    showScreen('screen-room');
+    UI.renderLobby();
+    syncTabs();
+    return;
+  }
   goSetup();
+}
+
+/* ------------------------------------------------------------- الأونلاين */
+
+function goOnline() {
+  Sound.click();
+  $('onlineName').value = Net.savedName();
+  showScreen('screen-online');
+  syncTabs();
+}
+
+/** يمنع ضغطتين متتاليتين من إنشاء رومين — النداء يستغرق ثانية */
+async function withBusy(id, fn) {
+  const btn = $(id);
+  if (btn.disabled) return false;
+  btn.disabled = true;
+  try { return await fn(); }
+  finally { btn.disabled = false; }
+}
+
+async function hostCreateRoom() {
+  const name = $('onlineName').value.trim();
+  if (!name) { uiToast('اكتب اسمك أولاً'); return; }
+
+  await withBusy('createRoomBtn', async () => {
+    if (!(await Net.ensureLib())) { uiToast(Online.msg('offline')); return; }
+    if (await Online.create(name)) {
+      showScreen('screen-room');
+      UI.renderLobby();
+      syncTabs();
+    }
+  });
+}
+
+async function submitJoinRoom() {
+  const name = $('onlineName').value.trim();
+  const code = $('joinCode').value.trim().toUpperCase();
+  if (!name) { uiToast('اكتب اسمك أولاً'); return; }
+  if (code.length !== 6) { uiToast('الكود ست خانات'); return; }
+
+  await withBusy('joinRoomBtn', async () => {
+    if (!(await Net.ensureLib())) { uiToast(Online.msg('offline')); return; }
+    if (await Online.join(code, name)) {
+      showScreen('screen-room');
+      UI.renderLobby();
+      syncTabs();
+    }
+  });
+}
+
+async function movePlayer(seat, team) {
+  const data = await Net.setTeam(seat, team);
+  if (data.error) uiToast(Online.msg(data.error));
+  else UI.renderLobby();
+}
+
+function lobbyStart() {
+  commitNames();
+  startMatch();
+}
+
+async function leaveRoom() {
+  if (Online.active() && Game.phase === 'playing' &&
+      !(await uiConfirm('تخرج من الروم وتترك المباراة؟'))) return;
+  await Online.leave();
+  goHome();
+}
+
+function roomLink() {
+  const r = Net.room();
+  return location.origin + location.pathname + '?room=' + (r ? r.code : '');
+}
+
+async function copyRoomCode() {
+  const text = roomLink();
+  try {
+    await navigator.clipboard.writeText(text);
+    uiToast('نُسخ الرابط ✅');
+  } catch (e) {
+    // الحافظة ممنوعة خارج HTTPS — بديل يعمل في كل مكان
+    const ta = el('textarea', { style: { position: 'fixed', opacity: '0' } });
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    uiToast('نُسخ الرابط ✅');
+  }
+}
+
+function shareRoom() {
+  const r = Net.room();
+  const text = 'العب معي حروف مع رجا 🔤\nكود الروم: ' + (r ? r.code : '') + '\n' + roomLink();
+  if (navigator.share) navigator.share({ title: 'حروف مع رجا', text: text }).catch(() => {});
+  else window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+function refreshResumeBox() {
+  const s = Net.savedSession();
+  const fresh = s && Date.now() - s.at < 6 * 3600 * 1000;
+  $('resumeBox').classList.toggle('hidden', !fresh);
+  if (fresh) $('resumeCode').textContent = s.code;
+}
+
+async function resumeRoom() {
+  const s = Net.savedSession();
+  if (!s) return;
+  if (!(await Net.ensureLib())) { uiToast(Online.msg('offline')); return; }
+  if (await Online.resume(s.code)) syncTabs();
+  else refreshResumeBox();
+}
+
+function dropRoomSession() {
+  Net.forgetSession();
+  refreshResumeBox();
 }
 
 /* --------------------------------------------------------------- الإقلاع */
@@ -273,6 +397,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   syncTabs();
   measureChrome();
   window.addEventListener('resize', measureChrome);
+
+  // الكود يُكتب بأحرف كبيرة دائماً، ولا نقبل غير الحروف والأرقام
+  $('joinCode').addEventListener('input', e => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+
+  /* رابط دعوة `?room=CODE`: نملأ الكود ونفتح شاشة الأونلاين، وندخل مباشرة
+     لمن سبق أن كتب اسمه. ثم يُنظَّف العنوان وإلا تكرّرت المحاولة عند
+     كل تحديث للصفحة. */
+  const invite = new URLSearchParams(location.search).get('room');
+  if (invite) {
+    history.replaceState({}, '', location.pathname);
+    $('joinCode').value = invite.toUpperCase().slice(0, 6);
+    $('onlineName').value = Net.savedName();
+    showScreen('screen-online');
+    syncTabs();
+    if (Net.savedName()) submitJoinRoom();
+  } else {
+    refreshResumeBox();
+  }
 
   // اختصارات المقدّم. لا نربط Escape بالإغلاق عمداً: إغلاق السؤال بلا حكم
   // يعني تهرّباً من الخلية، والدور لا يتقدّم — فتعلق اللعبة.

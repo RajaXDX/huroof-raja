@@ -138,6 +138,9 @@ const Game = {
   winPath: null,
   timerId: null,
   timeLeft: 0,
+  // ⚠️ ختم زمني مشترك لا عدّاد محلي. أونلاين، لو عدّ كل جهاز وحده لانحرفا:
+  // من فتح السؤال متأخراً يرى وقتاً أطول، ومن جُمّد تبويبه يرى وقتاً متوقّفاً.
+  deadline: 0,
   answerShown: false,
 };
 
@@ -157,6 +160,7 @@ function startMatch() {
     uiToast('بنك الأسئلة لم يُحمَّل. تأكد أنك تشغّل اللعبة عبر خادم وليس بفتح الملف مباشرة.');
     return;
   }
+  if (!Online.isJudge()) { uiToast('المضيف هو من يبدأ المباراة'); return; }
 
   Game.round = 0;
   Game.wins = { A: 0, B: 0 };
@@ -195,7 +199,11 @@ function startRound() {
     Game.turn = Game.wins.A > Game.wins.B ? 'B' : 'A';
   }
 
+  Game.activeCell = null;
+  Game.deadline = 0;
   UI.renderRound();
+  UI.applyRole();
+  Online.publish('playing');
 }
 
 /* ------------------------------------------------------------- اللعب */
@@ -205,30 +213,50 @@ function selectCell(index) {
   if (Game.activeCell !== null) return;             // سؤال مفتوح بالفعل
   if (Game.owners[index] !== null) return;          // الخلية مأخوذة
 
+  // أونلاين: الاختيار لمن عليه الدور. المنع هنا لا في ui.js — ui لا يقرّر.
+  if (!Online.canPick()) { uiToast(Online.whyCannotPick()); return; }
+
   Game.activeCell = index;
   Game.answerShown = false;
+  Game.deadline = SETTINGS.timer ? Date.now() + SETTINGS.timer * 1000 : 0;
   Sound.open();
   UI.openQuestion(index);
+  UI.applyRole();
   startTimer();
+  Online.publish();
 }
 
+/**
+ * المؤقّت يعرض ما بقي من `Game.deadline`، ولا يعدّ بنفسه.
+ *
+ * ⚠️ **الحكم عند انتهاء الوقت للمقدّم وحده.** لو حكم كل جهاز عند بلوغ
+ * الصفر لَنُفِّذت الإجابة الخاطئة مرات بعدد اللاعبين، وكل واحدة تبثّ حالة
+ * فتتسابق النسخ. عند الجميع يتوقّف العدّ وحسب.
+ */
 function startTimer() {
   stopTimer();
-  if (!SETTINGS.timer) { UI.updateTimer(null); return; }
+  if (!SETTINGS.timer || !Game.deadline) { UI.updateTimer(null); return; }
 
-  Game.timeLeft = SETTINGS.timer;
-  UI.updateTimer(Game.timeLeft);
+  tickTimer();
+  Game.timerId = setInterval(tickTimer, 250);
+}
 
-  Game.timerId = setInterval(() => {
-    Game.timeLeft -= 1;
-    UI.updateTimer(Game.timeLeft);
-    if (Game.timeLeft <= 5 && Game.timeLeft > 0) Sound.tick();
-    if (Game.timeLeft <= 0) {
-      stopTimer();
+function tickTimer() {
+  const left = Math.max(0, Math.ceil((Game.deadline - Date.now()) / 1000));
+
+  if (left !== Game.timeLeft) {
+    Game.timeLeft = left;
+    UI.updateTimer(left);
+    if (left <= 5 && left > 0) Sound.tick();
+  }
+
+  if (Date.now() >= Game.deadline) {
+    stopTimer();
+    if (Online.isJudge()) {
       uiToast('انتهى الوقت!');
       resolveAnswer(false);
     }
-  }, 1000);
+  }
 }
 
 function stopTimer() {
@@ -237,8 +265,10 @@ function stopTimer() {
 }
 
 function revealAnswer() {
+  if (!Online.isJudge()) return;
   Game.answerShown = true;
   UI.showAnswer();
+  Online.publish();
 }
 
 /**
@@ -262,13 +292,16 @@ function refreshQuestion(index) {
  */
 function cancelQuestion() {
   if (Game.activeCell === null) return;
+  if (!Online.isJudge()) return;
   stopTimer();
 
   const index = Game.activeCell;
   Game.activeCell = null;
   Game.answerShown = false;
+  Game.deadline = 0;
   UI.closeQuestion();
   refreshQuestion(index);
+  Online.publish();
 }
 
 /**
@@ -276,6 +309,7 @@ function cancelQuestion() {
  */
 function resolveAnswer(correct) {
   if (Game.activeCell === null) return;
+  if (!Online.isJudge()) return;
   stopTimer();
 
   const index = Game.activeCell;
@@ -295,6 +329,7 @@ function resolveAnswer(correct) {
   }
 
   Game.activeCell = null;
+  Game.deadline = 0;
   UI.closeQuestion();
   UI.paintCell(index);
   UI.renderStatus();
@@ -307,7 +342,10 @@ function resolveAnswer(correct) {
   if (!finished) {
     Game.turn = otherTeam(answering);
     UI.renderStatus();
+    UI.applyRole();
   }
+  // بثّة واحدة بعد استقرار الحالة — سواء انتهت الجولة أم تبدّل الدور
+  Online.publish();
 }
 
 /**
@@ -351,6 +389,7 @@ function endRound() {
 }
 
 function nextRound() {
+  if (!Online.isJudge()) return;
   const needed = Math.floor(SETTINGS.rounds / 2) + 1;
 
   // نُنهي المباراة مبكراً لو حسم أحدهم أغلبية الجولات
@@ -364,4 +403,5 @@ function nextRound() {
 function endMatch() {
   Game.phase = 'match-over';
   UI.showMatchResult();
+  Online.publish('ended');
 }
