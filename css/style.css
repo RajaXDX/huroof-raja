@@ -384,8 +384,12 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
   flex: 1; display: flex; flex-direction: column; width: 100%;
   min-height: 0;   /* بدونها لا ينكمش العنصر تحت حجم محتواه */
 }
+/* اللوحة تعلو الحاوية لا تتوسّطها. الحاوية عنصر مرن يبتلع كل ما تبقّى من
+   الشاشة، وتوسيط اللوحة فيه كان يقسم الفائض نصفين فيظهر فراغ أسود بين
+   شريط الدور واللوحة على الجوالات الطويلة (105px على 440×956) — واللوحة
+   لا تستطيع ملأه لأن مقاسها محكوم بالعرض لا بالارتفاع. */
 .board-stage {
-  flex: 1; display: grid; place-items: center; padding: 24px 12px;
+  flex: 1; display: grid; place-items: start center; padding: 24px 12px;
   min-height: 0;
 }
 
@@ -589,6 +593,9 @@ kbd {
     padding: 0 4px;
   }
 
+  /* حشوة أضيق لشاشة اللوحة وحدها: مقاس الخلية محكوم بالعرض على الجوال،
+     فكل بكسل جانبي يُوفَّر يكبّر الخلية ويقصّر الفراغ الرأسي معها. */
+  .wrap-board { padding-left: 10px; padding-right: 10px; }
   .board-stage { padding: 16px 6px; }
   .q-box { padding: 22px; }
   .q-text { font-size: 18px; }
