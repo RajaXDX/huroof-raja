@@ -218,14 +218,6 @@ function goBoard() {
   syncTabs();
 }
 
-/** يقيس ارتفاع الشريط الزخرفي والهيدر ليعرف باقي الشاشة ارتفاعه المتاح */
-function measureChrome() {
-  const deco = document.querySelector('.deco-bar');
-  const head = document.querySelector('.app-header');
-  const h = (deco ? deco.offsetHeight : 0) + (head ? head.offsetHeight : 0);
-  document.documentElement.style.setProperty('--chrome-h', h + 'px');
-}
-
 /** يبرز التبويب المطابق للشاشة الظاهرة */
 function syncTabs() {
   const active = document.querySelector('.screen.active');
@@ -420,8 +412,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   renderSetup();
   syncTabs();
-  measureChrome();
-  window.addEventListener('resize', measureChrome);
 
   // الكود يُكتب بأحرف كبيرة دائماً، ولا نقبل غير الحروف والأرقام
   $('joinCode').addEventListener('input', e => {

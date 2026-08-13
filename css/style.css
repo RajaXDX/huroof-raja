@@ -34,7 +34,6 @@ body {
   background-attachment: fixed;
   color: var(--text);
   font-family: 'Almarai', system-ui, sans-serif;
-  min-height: 100vh;
   overflow-x: hidden;
 }
 
@@ -51,9 +50,21 @@ body {
 }
 input, textarea { -webkit-user-select: text; user-select: text; }
 
-@media (display-mode: standalone) {
-  html, body { height: 100%; overflow: hidden; }
-  .screen.active { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* وعاء التمرير هو الشاشة الفعّالة لا الصفحة: الجسم عمود بارتفاع النافذة،
+   الهيدر ثابت في أعلاه والشاشة تأخذ ما تبقّى وتمرّر داخلها.
+
+   القاعدة عامة عمداً. كانت محصورة بـ(display-mode: standalone) فانقسم
+   السلوك: المتصفح يمرّر الصفحة كلها فيبدو كل شيء سليماً، والتطبيق يطبّق
+   overflow: hidden على الجسم بلا أن يُعطي الشاشة ارتفاعاً محسوماً — فلا
+   هي مرّرت ولا الصفحة، وانقصّ كل ما تحت الطيّة. عطلٌ لا يظهر إلا داخل
+   التطبيق، فلا تُعِد الحصر. */
+html, body { height: 100%; overflow: hidden; }
+body { display: flex; flex-direction: column; }
+.screen.active {
+  flex: 1 1 auto;
+  min-height: 0;   /* بدونها لا ينكمش العنصر تحت حجم محتواه فلا يمرّر */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hidden { display: none !important; }
@@ -64,6 +75,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 
 .deco-bar {
   height: 10px;
+  flex: 0 0 auto;
   opacity: .8;
   padding-top: env(safe-area-inset-top, 0px);
   background: repeating-linear-gradient(135deg,
@@ -73,7 +85,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 
 .app-header {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 16px;
+  gap: 16px; flex: 0 0 auto;
   padding: 18px max(32px, env(safe-area-inset-right, 0px))
            18px max(32px, env(safe-area-inset-left, 0px));
   border-bottom: 1px solid var(--line);
@@ -364,9 +376,9 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 
 #screen-game.active {
   display: flex; flex-direction: column;
-  /* --chrome-h يقيسه js/setup.js من الشريط الزخرفي والهيدر معاً. الرقم
-     الثابت لا يصلح: الهيدر يقصر على الجوال فيظهر تمرير رأسي زائد. */
-  min-height: calc(100vh - var(--chrome-h, 101px));
+  /* لا نحسب ارتفاعاً هنا: الشاشة عنصر مرن يملأ ما تبقّى بعد الهيدر وشريط
+     الروم. الحساب اليدوي (100vh ناقص الهيدر) كان يخطئ كلما ظهر شريط
+     الروم فيظهر تمرير رأسي زائد أثناء اللعب. */
 }
 .wrap-board {
   flex: 1; display: flex; flex-direction: column; width: 100%;
@@ -595,7 +607,7 @@ kbd {
 
 /* شريط الروم: يبقى ظاهراً في كل الشاشات فلا ينسى اللاعب أنه داخل روم */
 .room-bar {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 12px; flex: 0 0 auto;
   padding: 8px max(14px, env(safe-area-inset-right, 0px)) 8px max(14px, env(safe-area-inset-left, 0px));
   background: var(--panel-solid); border-bottom: 1px solid var(--line);
   font-size: 13px; color: var(--muted);

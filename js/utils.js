@@ -76,7 +76,8 @@ function showScreen(id) {
   const el = document.getElementById(id);
   if (el) {
     el.classList.add('active');
-    window.scrollTo(0, 0);
+    // الشاشة نفسها هي وعاء التمرير لا النافذة، فمنها يُعاد الرأس
+    el.scrollTop = 0;
   }
 }
 
