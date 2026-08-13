@@ -92,9 +92,19 @@
   ارفع `dist.csr`، نزّل `distribution.cer`، ثم حوّلهما إلى `.p12`:
   ```bash
   openssl x509 -in distribution.cer -inform DER -out dist.pem -outform PEM
-  openssl pkcs12 -export -inkey dist.key -in dist.pem -out dist.p12
+  openssl pkcs12 -export -inkey dist.key -in dist.pem -out dist.p12 -legacy -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1
   ```
+  ⚠️ **الأعلام الأربعة الأخيرة ليست زينة.** OpenSSL 3 (وهو ما في Git Bash
+  عندك — 3.5.7) يشفّر الـ`.p12` بـ AES-256 و PBKDF2، و`security import`
+  على ماك السير يرفضها برسالة غامضة عن كلمة مرور خاطئة، فتظنّ أنك أخطأت
+  في السرّ وتعيد كل شيء. الأعلام تفرض التشفير القديم الذي تقبله سلسلة
+  مفاتيح آبل.
+
   اخترع كلمة مرور للـ`.p12` واحفظها — ستحتاجها في الأسرار.
+
+  ⚠️ **ولّد هذه الملفات خارج مجلد المستودع** (مثلاً `~/apple-huroof`).
+  المستودع عام، و`dist.key` أو `dist.p12` لو دخل commit صار مفتاح توقيعك
+  بيد الجميع.
 
 **ج. ملف التزويد (Provisioning Profile)**
 - Profiles → **+** → **App Store Connect**
