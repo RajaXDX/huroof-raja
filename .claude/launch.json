@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "huroof",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8210", "--bind", "127.0.0.1"],
+      "port": 8210
+    }
+  ]
+}

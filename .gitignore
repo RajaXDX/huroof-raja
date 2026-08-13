@@ -8,6 +8,10 @@ desktop.ini
 .idea/
 *.swp
 
+# ‏.claude/ محجوب إلا ملف تشغيل الخادم — البقية شخصية (صلاحيات كل جهاز)
+.claude/*
+!.claude/launch.json
+
 # مؤقتات
 *.log
 *.tmp
