@@ -33,11 +33,31 @@ jobs:
   build:
     # صورة ماك من GitHub. الدقيقة تُحتسب مضاعفة على المستودعات الخاصة،
     # ومجانية بلا حدّ على العامة.
-    runs-on: macos-15
+    #
+    # macos-26 لا macos-15: آبل ترفض منذ 2026 أي حزمة بُنيت بـSDK أقدم من
+    # iOS 26، وصورة macos-15 تأتي بـXcode 16 (SDK 18.5). البناء والتوقيع
+    # والتصدير كلها كانت تنجح ثم يردّ الرفع بـ409 في آخر خطوة.
+    runs-on: macos-26
     timeout-minutes: 40
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: اختيار أحدث Xcode والتحقّق من الـSDK
+        run: |
+          # الصورة تحمل أكثر من إصدار، والافتراضي ليس أحدثها بالضرورة.
+          # نختار الأحدث ونتأكد من رقم الـSDK هنا — قبل عشر دقائق بناء —
+          # بدل أن نكتشفه في ردّ 409 من آبل بعد نجاح كل شيء.
+          LATEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "المتاح:"; ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "$LATEST/Contents/Developer"
+          xcodebuild -version
+          SDK=$(xcodebuild -showsdks | grep -o 'iphoneos[0-9.]*' | sed 's/iphoneos//' | sort -V | tail -1)
+          echo "أحدث SDK لـiOS: $SDK"
+          if [ "${SDK%%.*}" -lt 26 ]; then
+            echo "آبل تشترط SDK 26 فأحدث. المتاح $SDK — تحتاج صورة ماك أحدث في runs-on."
+            exit 1
+          fi
 
       - name: تثبيت اعتماديات Node
         run: npm ci

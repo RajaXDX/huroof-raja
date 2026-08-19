@@ -9,7 +9,7 @@
 		<string>ar</string>
 	</array>
 	<key>CFBundleDisplayName</key>
-        <string>حروف مع رجا</string>
+        <string>صراع الحروف</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

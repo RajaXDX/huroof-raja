@@ -361,10 +361,10 @@ function isNativeApp() {
 
 function shareRoom() {
   const r = Net.room();
-  const text = 'العب معي حروف مع رجا 🔤\nكود الروم: ' + (r ? r.code : '') + '\n' + roomLink();
+  const text = 'العب معي صراع الحروف 🔤\nكود الروم: ' + (r ? r.code : '') + '\n' + roomLink();
 
   if (navigator.share) {
-    navigator.share({ title: 'حروف مع رجا', text: text }).catch(() => {});
+    navigator.share({ title: 'صراع الحروف', text: text }).catch(() => {});
     return;
   }
 

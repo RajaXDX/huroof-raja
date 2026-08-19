@@ -1,7 +1,7 @@
 {
   "name": "huroof-raja",
   "version": "1.0.0",
-  "description": "حروف مع رجا — لعبة خلية الحروف",
+  "description": "صراع الحروف — لعبة خلية الحروف",
   "private": true,
   "scripts": {
     "build": "python tools/build-www.py",

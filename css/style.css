@@ -1,5 +1,5 @@
 /* ==========================================================================
-   style.css — واجهة «حروف مع رجا»
+   style.css — واجهة «صراع الحروف»
    --------------------------------------------------------------------------
    مبنية على مواصفة التصميم في واجهة لعبة تفاعلية/design_handoff_horoof_game.
    كل الألوان متغيّرات يكتبها js/themes.js على :root — لا تكتب لوناً صريحاً
@@ -603,6 +603,12 @@ kbd {
 }
 
 @media (max-width: 420px) {
+  /* اسم اللعبة في الهيدر كان يُقصّ على 375px: يحتاج 93px ولا يجد إلا 77،
+     فتختفي آخر حروفه خلف حافة العنصر (overflow: hidden فوق nowrap). عطل
+     قديم لا علاقة له بالاسم — قِيس بالاسمين فأعطيا 93 بالضبط. */
+  .brand-name { font-size: 14px; }
+  .brand-hex { width: 34px; height: 39px; font-size: 17px; }
+
   .home-stats { grid-template-columns: 1fr 1fr; }
   .home-stats .stat-card:last-child { grid-column: span 2; }
   .judge-row { grid-template-columns: 1fr; }
