@@ -87,8 +87,13 @@
 - يطلب ملف `CSR`. أنشئه من `keychain` على ماك… ولا ماك عندك.
   **البديل بلا ماك:** أنشئ الـCSR بـ OpenSSL:
   ```bash
-  openssl req -new -newkey rsa:2048 -nodes -keyout dist.key -out dist.csr -subj "/emailAddress=ramahasheer@gmail.com/CN=Ramah/C=SA"
+  MSYS_NO_PATHCONV=1 openssl req -new -newkey rsa:2048 -nodes -keyout dist.key -out dist.csr -subj "/emailAddress=ramahasheer@gmail.com/CN=Ramah/C=SA"
   ```
+  ⚠️ **`MSYS_NO_PATHCONV=1` ضرورية في Git Bash على ويندوز.** بدونها يرى
+  الغلاف أن `/emailAddress=...` مسار يونكس فيترجمه إلى
+  `C:/Program Files/Git/emailAddress=...`، ويردّ openssl بأن الاسم ليس
+  بالصيغة المتوقّعة — **وقد جرّبناه فوقع فعلاً**. والمصيبة أنه ينشئ
+  `dist.key` قبل أن يفشل، فتظنّ أن الأمر نجح جزئياً.
   ارفع `dist.csr`، نزّل `distribution.cer`، ثم حوّلهما إلى `.p12`:
   ```bash
   openssl x509 -in distribution.cer -inform DER -out dist.pem -outform PEM
