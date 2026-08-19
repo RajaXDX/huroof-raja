@@ -81,8 +81,8 @@ jobs:
           PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
           KEYCHAIN=$RUNNER_TEMP/build.keychain-db
 
-          echo -n "$CERT_B64" | base64 --decode -o $CERT_PATH
-          echo -n "$PROFILE_B64" | base64 --decode -o $PROFILE_PATH
+          printf %s "$CERT_B64" | base64 --decode > $CERT_PATH
+          printf %s "$PROFILE_B64" | base64 --decode > $PROFILE_PATH
 
           # سلسلة مفاتيح مؤقتة تموت مع الجهاز الافتراضي بعد انتهاء التشغيل
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
