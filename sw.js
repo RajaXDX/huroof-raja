@@ -11,7 +11,7 @@
    إلى الأبد — وهذا أشهر خطأ في عمّال الخدمة.
    ========================================================================== */
 
-const CACHE_VERSION = 'huroof-v9';
+const CACHE_VERSION = 'huroof-v10';
 
 const ASSETS = [
   './',
@@ -47,6 +47,9 @@ const ASSETS = [
   './assets/icons/icon-512.png',
   './assets/icons/icon-180.png',
   './assets/icons/icon-32.png',
+  // ⚠️ مذكورة في manifest.json — بلا تخزينها تفشل الأيقونة المقنّعة
+  // عند التثبيت بلا إنترنت وحده، وهو أكثر ما يُثبَّت فيه
+  './assets/icons/icon-maskable-512.png',
 ];
 
 /* التثبيت: نخزّن كل شيء دفعة واحدة */

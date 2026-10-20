@@ -38,6 +38,18 @@ const Net = (function () {
   let channel = null;
   let pollTimer = null;
 
+  // نسختنا الحالية جاءت من بثّ لم يؤكّده الجدول بعد. ما دامت مرفوعة،
+  // الجدول يفوز عند الاختلاف — فالبثّ يمكن لأي عارف بالكود أن يرسله،
+  // بينما الكتابة في الجدول تمرّ بـ`hr_push` وهي تفحص التوكن.
+  let unconfirmed = false;
+  let confirmTimer = null;
+
+  function confirmSoon() {
+    clearTimeout(confirmTimer);
+    // ~ثانية: تكفي لوصول كتابة الباثّ الشرعي للجدول، فلا نراجع على فراغ
+    confirmTimer = setTimeout(() => { confirmTimer = null; poll(); }, 900);
+  }
+
   let onUpdate = () => {};
   let onError  = () => {};
 
@@ -112,6 +124,7 @@ const Net = (function () {
 
   function adopt(data) {
     if (!data || data.error) return data;
+    unconfirmed = false;   // هذه جاءت من الجدول، فهي المرجع
     room = data;
     if (typeof data.you === 'number') seat = data.you;
     // نأخذ الأعلى لا الوارد: ردّ متأخر قد يحمل نسخة أقدم مما عندنا
@@ -190,7 +203,14 @@ const Net = (function () {
       if ((payload.version || 0) <= version) return;
       version = payload.version;
       room = Object.assign({}, room, payload, { you: seat });
+      unconfirmed = true;
       onUpdate(room);
+      // ⚠️ قناة البثّ مفتوحة لمن يعرف الكود، والخادم لا يفحص العضوية فيها —
+      // بخلاف `hr_push` التي تفحص التوكن. فالبثّ يُطبَّق فوراً للسرعة ثم
+      // يُراجَع على الجدول: لو كان مزوَّراً عاد الجدول بالحقيقة خلال ثانية
+      // بدل أن تبقى لوحة مكذوبة أمام اللاعبين. نفس مبدأ حدث `roster`
+      // أعلاه — لا نأتمن البثّ على الحقائق.
+      confirmSoon();
     });
 
     /* تغيّر في قائمة اللاعبين. لا نبثّ القائمة نفسها — البثّ لا يُؤتمن على
@@ -209,6 +229,8 @@ const Net = (function () {
 
   function unsubscribe() {
     clearInterval(pollTimer); pollTimer = null;
+    clearTimeout(confirmTimer); confirmTimer = null;
+    unconfirmed = false;
     if (channel && supa) { supa.removeChannel(channel); channel = null; }
   }
 
@@ -230,7 +252,15 @@ const Net = (function () {
       return;
     }
     if ((data.version || 0) < version) {
-      // عندنا أحدث ممّا في الجدول (بثّ سبق الكتابة) — لا نتراجع
+      if (unconfirmed) {
+        // بثّ رفع نسختنا ولم يصل الجدول شيء يطابقه بعد مهلة المراجعة.
+        // إمّا بثّ مزوَّر من خارج الروم، وإمّا كتابة فُقدت. الجدول هو
+        // المرجع في الحالتين — ونُنزل العدّاد وإلا رفض كل دفع لاحق.
+        version = data.version || 0;
+        adopt(data);
+        return;
+      }
+      // عندنا أحدث ممّا في الجدول (بثّنا نحن سبق كتابتنا) — لا نتراجع
       room = Object.assign({}, data, { state: room.state, version: version, you: seat });
       onUpdate(room);
       return;
@@ -248,6 +278,7 @@ const Net = (function () {
     if (!room || !room.code) return;
 
     version += 1;
+    unconfirmed = false;   // دفعنا نحن يمرّ بـ`hr_push` وهي تفحص التوكن
     const payload = { state: state, status: status || room.status, version: version };
 
     room = Object.assign({}, room, payload);
