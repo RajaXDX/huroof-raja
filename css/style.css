@@ -494,6 +494,17 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
   padding: 15px; border-radius: 14px;
 }
 
+/* حكم ثالث في سطر مستقل لا ثالثٌ في صفّ زرّين: ثلاثة أزرار في صفّ واحد
+   تقصّ نصّها على الجوال. ولونه يتبع الفريق الآخر (يُكتب من ui.js) لأن
+   ألوان الفرق تتغيّر من الإعدادات، فالثابت في التنسيق يكذب أحياناً. */
+.btn-steal {
+  grid-column: 1 / -1;
+  background: transparent; color: var(--text);
+  border-style: dashed; border-color: var(--line-strong);
+  font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 14px;
+  padding: 13px; border-radius: 14px;
+}
+
 /* ============================ نتيجة الجولة ============================ */
 
 .round-modal { text-align: center; }

@@ -444,6 +444,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       resolveAnswer(true);
     } else if (e.key === '2') {
       resolveAnswer(false);
+    } else if (e.key === '3') {
+      awardOther();
     }
   });
 });

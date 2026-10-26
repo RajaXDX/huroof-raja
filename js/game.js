@@ -310,23 +310,57 @@ function cancelQuestion() {
 function resolveAnswer(correct) {
   if (Game.activeCell === null) return;
   if (!Online.isJudge()) return;
+
+  const answering = Game.turn;
+  let owner = null;   // 'free' تترك الخلية بلا مالك فتبقى متاحة
+
+  if (correct) {
+    owner = answering;
+  } else if (SETTINGS.wrongRule === 'opponent') {
+    owner = otherTeam(answering);
+  } else if (SETTINGS.wrongRule === 'block') {
+    owner = 'blocked';
+  }
+
+  settleQuestion(owner, correct);
+}
+
+/**
+ * يمنح الخلية للفريق الآخر صراحةً مهما كانت قاعدة الخطأ.
+ *
+ * الحاجة إليه عملية: السؤال يُقال بصوت عالٍ، فيخطئ صاحب الدور ويخطفها
+ * الخصم فوراً. «إجابة خاطئة» وحدها لا تكفي — نتيجتها تتبع قاعدة المباراة،
+ * فمع «تُقفل» أو «تبقى متاحة» يضيع ما كسبه الخصم فعلاً، ولا حيلة للمقدّم
+ * إلا تغيير قاعدة المباراة كلها من أجل خلية واحدة.
+ *
+ * والدور بعده ينتقل للخاطف تماماً كما في قاعدة «الخلية للفريق الآخر» —
+ * نفس الحكم يعطي نفس النتيجة أيّاً كان الزر الذي أوصل إليه.
+ */
+function awardOther() {
+  if (Game.activeCell === null) return;
+  if (!Online.isJudge()) return;
+
+  settleQuestion(otherTeam(Game.turn), true);
+}
+
+/**
+ * الذيل المشترك لكل حكم: يسلّم الخلية، ثم يبدّل الدور ما لم تنتهِ الجولة.
+ *
+ * ⚠️ مشترك عمداً. كل حكم جديد يُكتب خارجه ينسى شيئاً من هذه السبعة
+ * (المؤقّت، الرسم، الحالة، تبديل السؤال، فحص نهاية الجولة، الدور، البثّ)
+ * فيظهر العطل بعد جولات لا عند الضغطة.
+ *
+ * @param {('A'|'B'|'blocked'|null)} owner مالك الخلية بعد الحكم
+ * @param {boolean} scored هل كُسبت نقطة؟ (الصوت وحده يتبعه)
+ */
+function settleQuestion(owner, scored) {
   stopTimer();
 
   const index = Game.activeCell;
   const answering = Game.turn;
 
-  if (correct) {
-    Game.owners[index] = answering;
-    Sound.correct();
-  } else {
-    if (SETTINGS.wrongRule === 'opponent') {
-      Game.owners[index] = otherTeam(answering);
-    } else if (SETTINGS.wrongRule === 'block') {
-      Game.owners[index] = 'blocked';
-    }
-    // 'free' تترك الخلية null فتبقى متاحة
-    Sound.wrong();
-  }
+  Game.owners[index] = owner;
+  if (scored) Sound.correct(); else Sound.wrong();
 
   Game.activeCell = null;
   Game.deadline = 0;

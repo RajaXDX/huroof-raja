@@ -195,6 +195,12 @@ const UI = (function () {
     $('revealBtn').classList.remove('hidden');
     $('judgeRow').classList.add('hidden');
 
+    // زر خطف النقطة يسمّي الفريق الآخر ويلبس لونه — «الآخر» وحدها تُربك
+    // المقدّم وهو يحكم بسرعة بين فريقين
+    const other = otherTeam(Game.turn);
+    $('awardOtherBtn').textContent = 'النقطة لـ«' + teamName(other) + '»';
+    $('awardOtherBtn').style.borderColor = teamColor(other);
+
     $('questionModal').classList.add('show');
   }
 
