@@ -10,15 +10,16 @@ function renderThemeGrid() {
 
   Object.keys(THEMES).forEach(key => {
     const t = THEMES[key];
+    const locked = !Premium.canTheme(key);
     const btn = el('button', {
-      class: 'theme-btn' + (key === SETTINGS.palette ? ' selected' : ''),
+      class: 'theme-btn' + (key === SETTINGS.palette ? ' selected' : '') + (locked ? ' locked' : ''),
       type: 'button',
       style: {
         background: `linear-gradient(160deg, ${t.bg[0]}, ${t.bg[2]})`,
         borderColor: key === SETTINGS.palette ? t.accent : 'rgba(255,255,255,.08)',
       },
     }, `
-      <div class="theme-name" style="color:${t.head}">${escapeHtml(t.label)}</div>
+      <div class="theme-name" style="color:${t.head}">${locked ? '🔒 ' : ''}${escapeHtml(t.label)}</div>
       <div class="theme-dots">
         <span class="theme-dot" style="background:${t.accent}"></span>
         <span class="theme-dot" style="background:${t.teams[0]}"></span>
@@ -26,6 +27,7 @@ function renderThemeGrid() {
       </div>`);
 
     btn.onclick = () => {
+      if (locked) { showPaywall(); return; }
       SETTINGS.palette = key;
       // تبديل الثيم يصفّر ألوان الفريقين إلى افتراضياته — وإلا بقي لون
       // مختار من ثيم سابق لا ينسجم مع اللوحة الجديدة.
@@ -85,17 +87,19 @@ function renderColorPickers() {
 
 /* ------------------------------------------------------ أزرار الخيارات */
 
-function renderChoiceGroup(containerId, options, currentValue, onPick) {
+function renderChoiceGroup(containerId, options, currentValue, onPick, isLocked) {
   const wrap = $(containerId);
   wrap.innerHTML = '';
 
   options.forEach(opt => {
+    const locked = !!(isLocked && isLocked(opt.value));
     const btn = el('button', {
-      class: 'choice' + (opt.value === currentValue ? ' selected' : ''),
+      class: 'choice' + (opt.value === currentValue ? ' selected' : '') + (locked ? ' locked' : ''),
       type: 'button',
-    }, escapeHtml(opt.label));
+    }, (locked ? '🔒 ' : '') + escapeHtml(opt.label));
 
     btn.onclick = () => {
+      if (locked) { showPaywall(); return; }
       Sound.select();
       onPick(opt.value);
       saveSettings();
@@ -106,6 +110,7 @@ function renderChoiceGroup(containerId, options, currentValue, onPick) {
 }
 
 function renderSetup() {
+  renderPlusCard();
   $('inputNameA').value = SETTINGS.teamA.name;
   $('inputNameB').value = SETTINGS.teamB.name;
 
@@ -117,7 +122,7 @@ function renderSetup() {
     { label: '٥×٥ متوسطة', value: 5 },
     { label: '٦×٦ كبيرة', value: 6 },
     { label: '٧×٧ ضخمة', value: 7 },
-  ], SETTINGS.size, v => { SETTINGS.size = v; });
+  ], SETTINGS.size, v => { SETTINGS.size = v; }, v => !Premium.canSize(v));
 
   renderChoiceGroup('roundChoices', [
     { label: 'جولة واحدة', value: 1 },
@@ -174,6 +179,54 @@ function updateSetupPreview() {
   });
 
   $('previewNote').textContent = `${n}×${n} — ${n * n} خلية`;
+}
+
+/* ---------------------------------------------------------- الاشتراك */
+
+function renderPlusCard() {
+  const on = Premium.active();
+  $('plusStatus').textContent = on
+    ? 'مفعّل حتى ' + new Date(Premium.until()).toLocaleDateString('ar-SA')
+    : 'افتح كل الثيمات والأحجام';
+  $('plusBtn').textContent = on ? 'مفعّل ✓' : 'اشترك';
+  $('plusBtn').disabled = on;
+}
+
+/** نافذة الاشتراك. المزايا من `Premium.PERKS` فلا تنحرف عن الفعلي. */
+function showPaywall() {
+  const overlay = el('div', { class: 'ui-modal-overlay' });
+  const perks = Premium.PERKS.map(p => `<li>${escapeHtml(p)}</li>`).join('');
+  const box = el('div', { class: 'ui-modal' }, `
+    <div class="ui-modal-msg"><strong>صراع الحروف+</strong>
+      <ul class="perk-list">${perks}</ul></div>
+    <div class="ui-modal-actions">
+      <button class="btn btn-ghost" data-act="restore">استعادة الشراء</button>
+      <button class="btn btn-ghost" data-act="close">لاحقاً</button>
+      <button class="btn btn-primary" data-act="buy">اشترك</button>
+    </div>`);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('show'));
+
+  const close = () => {
+    overlay.classList.remove('show');
+    setTimeout(() => overlay.remove(), 180);
+  };
+  const run = async (fn, failMsg) => {
+    if (!Premium.hasProvider()) {
+      uiToast('الاشتراك يُفتح قريباً داخل التطبيق');
+      return;
+    }
+    if (await fn()) { close(); uiToast('تم تفعيل الاشتراك ✅'); renderSetup(); }
+    else uiToast(failMsg);
+  };
+
+  box.querySelector('[data-act="close"]').onclick = close;
+  box.querySelector('[data-act="buy"]').onclick =
+    () => run(() => Premium.subscribe(), 'لم تتم عملية الشراء');
+  box.querySelector('[data-act="restore"]').onclick =
+    () => run(() => Premium.restore(), 'لا يوجد اشتراك سابق لاستعادته');
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
 }
 
 /* ------------------------------------------------------------ التبديلات */
@@ -235,7 +288,18 @@ function commitNames() {
   saveSettings();
 }
 
+/** يردّ ما انتهى اشتراكه إلى المجاني قبل بدء المباراة (المضيف وحده يبدأ) */
+function enforcePlan() {
+  if (Premium.clamp(SETTINGS)) {
+    applyTheme(SETTINGS.palette);
+    saveSettings();
+    renderSetup();
+    uiToast('انتهى الاشتراك — رجعت الإعدادات للمجاني');
+  }
+}
+
 function beginMatch() {
+  enforcePlan();
   commitNames();
   startMatch();
 }
@@ -313,6 +377,7 @@ async function movePlayer(seat, team) {
 }
 
 function lobbyStart() {
+  enforcePlan();
   commitNames();
   startMatch();
 }
@@ -401,6 +466,8 @@ function dropRoomSession() {
 /* --------------------------------------------------------------- الإقلاع */
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // اشتراك انتهى وإعدادات محفوظة من أيام الاشتراك: نردّها قبل أي رسم
+  if (Premium.clamp(SETTINGS)) saveSettings();
   applyTheme(SETTINGS.palette);
   Sound.setEnabled(SETTINGS.sound);
 

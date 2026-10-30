@@ -578,6 +578,11 @@ kbd {
 .ui-modal-msg { font-size: 16px; line-height: 1.7; color: var(--head); margin-bottom: 22px; }
 .ui-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
+/* الاشتراك */
+.plus-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.theme-btn.locked, .choice.locked { opacity: .55; }
+.perk-list { margin: 12px 0 0; padding: 0 20px 0 0; font-weight: 400; line-height: 2; }
+
 /* ============================== الجوال ============================== */
 
 @media (max-width: 860px) {

@@ -22,8 +22,8 @@
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- الخطوط محزومة محلياً لا من Google — اللعبة يجب أن تعمل بلا إنترنت -->
-  <link rel="stylesheet" href="css/fonts.css?v=13">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/fonts.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body>
 
@@ -255,6 +255,14 @@
     <h2 class="page-title">إعدادات المباراة</h2>
     <p class="page-sub">اختر الشكل والفريقين وقواعد اللعب</p>
 
+    <div class="card plus-card">
+      <div>
+        <div class="card-title">صراع الحروف+</div>
+        <div class="opt-desc" id="plusStatus"></div>
+      </div>
+      <button class="btn btn-primary" id="plusBtn" type="button" onclick="showPaywall()">اشترك</button>
+    </div>
+
     <div class="card">
       <div class="card-title">لون الواجهة</div>
       <div class="theme-grid" id="themeGrid"></div>
@@ -450,15 +458,16 @@
 </div>
 
 
-<script src="js/themes.js?v=13"></script>
-<script src="js/utils.js?v=13"></script>
-<script src="js/hive.js?v=13"></script>
-<script src="js/game.js?v=13"></script>
-<script src="js/ui.js?v=13"></script>
+<script src="js/themes.js?v=14"></script>
+<script src="js/premium.js?v=14"></script>
+<script src="js/utils.js?v=14"></script>
+<script src="js/hive.js?v=14"></script>
+<script src="js/game.js?v=14"></script>
+<script src="js/ui.js?v=14"></script>
 <!-- net قبل online: الأخير يسجّل مستمعيه على الأول لحظة التحميل -->
-<script src="js/net.js?v=13"></script>
-<script src="js/online.js?v=13"></script>
-<script src="js/setup.js?v=13"></script>
+<script src="js/net.js?v=14"></script>
+<script src="js/online.js?v=14"></script>
+<script src="js/setup.js?v=14"></script>
 
 <script>
 /* تسجيل عامل الخدمة — يخزّن اللعبة على الجهاز فتعمل بلا إنترنت.
