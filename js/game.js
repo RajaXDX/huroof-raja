@@ -110,10 +110,11 @@ function drawQuestion(letter) {
 
 /** توحيد كتابة الإجابة للمقارنة: بلا «ال» وبلا فروق الهمزة والتاء المربوطة */
 function normalizeAnswer(s) {
+  // «ال» تُنزع قبل توحيد الهمزة، وإلا صارت «ألمنيوم» «المنيوم» فتُنزع منها
   return String(s || '').trim()
     .replace(/[\u064B-\u0652\u0640]/g, '')   // التشكيل والتطويل
-    .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-    .replace(/^ال/, '');
+    .replace(/^ال(?=..)/, '')
+    .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
 }
 
 /**

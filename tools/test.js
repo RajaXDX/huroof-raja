@@ -52,19 +52,27 @@ function check(name, ok, detail) {
       if (s.startsWith('ال') && s.length > 3) s = s.slice(2);
       return 'أإآا'.includes(s[0]) ? 'ا' : s[0];
     };
-    let bad = 0, total = 0;
+    let bad = 0, total = 0, badChoices = 0, thin = 0;
     const qs = new Set();
     for (const [letter, items] of Object.entries(BANK)) {
+      if (items.length < 30) thin++;
       for (const it of items) {
         total++; qs.add(it.q);
         if (first(it.a) !== letter) bad++;
+        // الخيارات الخاطئة: ثلاثة، تبدأ بالحرف، ولا يطابق أيّها الإجابة
+        const ch = it.choices || [];
+        const norm = new Set([it.a].concat(ch).map(normalizeAnswer));
+        if (ch.length !== 3 || norm.size !== 4 ||
+            ch.some(c => first(c) !== letter)) badChoices++;
       }
     }
-    return { letters: Object.keys(BANK).length, total, bad, unique: qs.size };
+    return { letters: Object.keys(BANK).length, total, bad, badChoices, thin,
+             unique: qs.size };
   });
   check('28 حرفاً', bank.letters === 28, `وجد ${bank.letters}`);
-  check('280 سؤالاً', bank.total === 280, `وجد ${bank.total}`);
+  check('30 سؤالاً على الأقل لكل حرف', bank.thin === 0, `${bank.thin} حرف ناقص`);
   check('كل إجابة تبدأ بحرفها', bank.bad === 0, `${bank.bad} مخالفة`);
+  check('ثلاثة خيارات خاطئة صالحة لكل سؤال', bank.badChoices === 0, `${bank.badChoices} مخالفة`);
   check('لا سؤال مكرر', bank.unique === bank.total);
 
   /* ------------------------------------------ تبديل السؤال غير المُجاب */
