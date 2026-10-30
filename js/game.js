@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
   timer: 30,            // ثواني لكل سؤال، 0 = بلا مؤقت
   wrongRule: 'opponent',// opponent = الخلية للفريق الآخر | block = تُقفل | free = تبقى متاحة
   swapSides: true,      // تبديل الاتجاهات كل جولة (يلغي أفضلية الاتجاه العمودي)
+  answerMode: 'choices',// choices = أربعة اختيارات تُصحَّح آلياً | host = يُقال بصوت عالٍ ويحكم المقدّم
   sound: true,
 };
 
@@ -102,7 +103,45 @@ function drawQuestion(letter) {
 
   const pick = available[Math.floor(Math.random() * available.length)];
   usedQuestions[letter].add(pick);
-  return Object.assign({ letter }, list[pick]);
+  const q = Object.assign({ letter }, list[pick]);
+  q.options = buildOptions(q, list);
+  return q;
+}
+
+/** توحيد كتابة الإجابة للمقارنة: بلا «ال» وبلا فروق الهمزة والتاء المربوطة */
+function normalizeAnswer(s) {
+  // «ال» تُنزع قبل توحيد الهمزة، وإلا صارت «ألمنيوم» «المنيوم» فتُنزع منها
+  return String(s || '').trim()
+    .replace(/[\u064B-\u0652\u0640]/g, '')   // التشكيل والتطويل
+    .replace(/^ال(?=..)/, '')
+    .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+}
+
+/**
+ * أربعة اختيارات مخلوطة: الإجابة وثلاثة خاطئة.
+ *
+ * الخاطئة من `choices` في بنك الأسئلة إن وُجدت — مكتوبة لتبدأ بنفس الحرف
+ * ومن نفس النوع، فلا يكشفها شكلها. وإلا تُستعار من إجابات أسئلة الحرف
+ * نفسه: تبدأ بالحرف لكنها قد تختلف نوعاً (معركة بين أسماء حيوانات)، فهي
+ * حلّ مؤقت إلى أن يُكمل البنك.
+ *
+ * تُحسب مرة واحدة عند السحب وتُحفظ في السؤال، فتُبثّ أونلاين بترتيبها
+ * — لو خلط كل جهاز بنفسه لاختلف معنى «الاختيار الثاني» بين اللاعبين.
+ */
+function buildOptions(q, list) {
+  const seen = new Set([normalizeAnswer(q.a)].concat((q.alt || []).map(normalizeAnswer)));
+  const wrong = [];
+  const take = s => {
+    const n = normalizeAnswer(s);
+    if (!n || seen.has(n) || wrong.length >= 3) return;
+    seen.add(n);
+    wrong.push(s);
+  };
+
+  (Array.isArray(q.choices) ? q.choices : []).forEach(take);
+  shuffle(list.map(x => x.a)).forEach(take);
+
+  return shuffle([q.a].concat(wrong));
 }
 
 /**
@@ -142,6 +181,7 @@ const Game = {
   // من فتح السؤال متأخراً يرى وقتاً أطول، ومن جُمّد تبويبه يرى وقتاً متوقّفاً.
   deadline: 0,
   answerShown: false,
+  picked: null,       // رقم الاختيار الذي ضغطه الفريق في وضع الاختيارات
 };
 
 function teamName(t) { return t === 'A' ? SETTINGS.teamA.name : SETTINGS.teamB.name; }
@@ -200,6 +240,7 @@ function startRound() {
   }
 
   Game.activeCell = null;
+  Game.picked = null;
   Game.deadline = 0;
   UI.renderRound();
   UI.applyRole();
@@ -218,6 +259,7 @@ function selectCell(index) {
 
   Game.activeCell = index;
   Game.answerShown = false;
+  Game.picked = null;
   Game.deadline = SETTINGS.timer ? Date.now() + SETTINGS.timer * 1000 : 0;
   Sound.open();
   UI.openQuestion(index);
@@ -252,6 +294,7 @@ function tickTimer() {
 
   if (Date.now() >= Game.deadline) {
     stopTimer();
+    if (Game.picked !== null) return;   // اختاروا قبل الصفر — التسوية جارية
     if (Online.isJudge()) {
       uiToast('انتهى الوقت!');
       resolveAnswer(false);
@@ -266,6 +309,7 @@ function stopTimer() {
 
 function revealAnswer() {
   if (!Online.isJudge()) return;
+  if (SETTINGS.answerMode === 'choices') return;   // الاختيارات تكشف نفسها
   Game.answerShown = true;
   UI.showAnswer();
   Online.publish();
@@ -298,10 +342,64 @@ function cancelQuestion() {
   const index = Game.activeCell;
   Game.activeCell = null;
   Game.answerShown = false;
+  Game.picked = null;
   Game.deadline = 0;
   UI.closeQuestion();
   refreshQuestion(index);
   Online.publish();
+}
+
+/* ------------------------------------------------- وضع الاختيارات */
+
+/**
+ * الفريق صاحب الدور يضغط اختياراً.
+ *
+ * الحكم آلي: الاختيار يطابق الإجابة أو لا. وهذا ما يجعل الأونلاين قابلاً
+ * للعب بلا مكالمة — لا أحد يحتاج أن يسمع أحداً.
+ *
+ * ⚠️ الضاغط يسجّل اختياره ويبثّه فقط، و**التسوية عند المقدّم** كما في كل
+ * حكم (`settlePick`). لو سوّى كل جهاز بنفسه لتسابقت النسخ — نفس سبب
+ * حصر الحكم عند انتهاء الوقت بالمقدّم.
+ */
+function chooseOption(i) {
+  if (SETTINGS.answerMode !== 'choices') return;
+  if (Game.phase !== 'playing' || Game.activeCell === null) return;
+  if (Game.picked !== null) return;                 // اختيار واحد لكل سؤال
+  if (!Online.canPick()) { uiToast(Online.whyCannotPick()); return; }
+
+  const q = Game.questions[Game.activeCell];
+  if (!q || !q.options || !(i >= 0 && i < q.options.length)) return;
+
+  Game.picked = i;
+  stopTimer();
+  UI.showPick();
+  Online.publish();
+  settlePick();
+}
+
+/** هل الاختيار المضغوط هو الإجابة؟ */
+function pickIsCorrect() {
+  const q = Game.questions[Game.activeCell];
+  return !!q && q.options[Game.picked] === q.a;
+}
+
+/**
+ * المقدّم يسوّي الاختيار بعد مهلة قصيرة يرى فيها الجميع الأخضر والأحمر.
+ * تُنادى من `chooseOption` عند الضاغط، ومن `Online.apply` عند المقدّم
+ * حين يصله اختيار ضيف. والختم يمنع تسوية مزدوجة لو وصلت البثّة مرتين.
+ */
+let pendingPick = null;
+function settlePick() {
+  if (!Online.isJudge() || Game.picked === null) return;
+  const key = Game.round + ':' + Game.activeCell;
+  if (pendingPick === key) return;
+  pendingPick = key;
+
+  setTimeout(() => {
+    pendingPick = null;
+    if (Game.round + ':' + Game.activeCell !== key || Game.picked === null) return;
+    resolveAnswer(pickIsCorrect());
+  }, 1600);
 }
 
 /**
@@ -363,6 +461,7 @@ function settleQuestion(owner, scored) {
   if (scored) Sound.correct(); else Sound.wrong();
 
   Game.activeCell = null;
+  Game.picked = null;
   Game.deadline = 0;
   UI.closeQuestion();
   UI.paintCell(index);

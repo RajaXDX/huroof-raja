@@ -133,6 +133,11 @@ function renderSetup() {
     { label: '٤٥ ثانية', value: 45 },
   ], SETTINGS.timer, v => { SETTINGS.timer = v; });
 
+  renderChoiceGroup('answerModeChoices', [
+    { label: 'اختيارات', value: 'choices' },
+    { label: 'المقدّم يحكم', value: 'host' },
+  ], SETTINGS.answerMode, v => { SETTINGS.answerMode = v; });
+
   renderChoiceGroup('wrongChoices', [
     { label: 'للفريق الآخر', value: 'opponent' },
     { label: 'تُقفل الخلية', value: 'block' },
@@ -437,6 +442,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // يعني تهرّباً من الخلية، والدور لا يتقدّم — فتعلق اللعبة.
   document.addEventListener('keydown', (e) => {
     if (!$('questionModal').classList.contains('show')) return;
+
+    // وضع الاختيارات: الأرقام تختار، ولا حكم يدوي يتجاوز التصحيح الآلي
+    if (SETTINGS.answerMode === 'choices') {
+      if (e.key >= '1' && e.key <= '4') chooseOption(Number(e.key) - 1);
+      return;
+    }
+
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       if (!Game.answerShown) revealAnswer();

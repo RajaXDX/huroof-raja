@@ -52,19 +52,27 @@ function check(name, ok, detail) {
       if (s.startsWith('ال') && s.length > 3) s = s.slice(2);
       return 'أإآا'.includes(s[0]) ? 'ا' : s[0];
     };
-    let bad = 0, total = 0;
+    let bad = 0, total = 0, badChoices = 0, thin = 0;
     const qs = new Set();
     for (const [letter, items] of Object.entries(BANK)) {
+      if (items.length < 30) thin++;
       for (const it of items) {
         total++; qs.add(it.q);
         if (first(it.a) !== letter) bad++;
+        // الخيارات الخاطئة: ثلاثة، تبدأ بالحرف، ولا يطابق أيّها الإجابة
+        const ch = it.choices || [];
+        const norm = new Set([it.a].concat(ch).map(normalizeAnswer));
+        if (ch.length !== 3 || norm.size !== 4 ||
+            ch.some(c => first(c) !== letter)) badChoices++;
       }
     }
-    return { letters: Object.keys(BANK).length, total, bad, unique: qs.size };
+    return { letters: Object.keys(BANK).length, total, bad, badChoices, thin,
+             unique: qs.size };
   });
   check('28 حرفاً', bank.letters === 28, `وجد ${bank.letters}`);
-  check('280 سؤالاً', bank.total === 280, `وجد ${bank.total}`);
+  check('30 سؤالاً على الأقل لكل حرف', bank.thin === 0, `${bank.thin} حرف ناقص`);
   check('كل إجابة تبدأ بحرفها', bank.bad === 0, `${bank.bad} مخالفة`);
+  check('ثلاثة خيارات خاطئة صالحة لكل سؤال', bank.badChoices === 0, `${bank.badChoices} مخالفة`);
   check('لا سؤال مكرر', bank.unique === bank.total);
 
   /* ------------------------------------------ تبديل السؤال غير المُجاب */
@@ -133,6 +141,62 @@ function check(name, ok, detail) {
   check('الإجابة الصحيحة لا تهدر سؤالاً', refresh.correct.kept && refresh.correct.owned);
   check('10 إلغاءات تعطي 10 أسئلة مختلفة',
         refresh.repeat.distinct === 10, `وجد ${refresh.repeat.distinct} للحرف ${refresh.repeat.letter}`);
+
+  /* -------------------------------------------------- وضع الاختيارات */
+  console.log('\nوضع الاختيارات');
+
+  const mc = await page.evaluate(async () => {
+    const g = eval;
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const out = {};
+    g("SETTINGS.timer=0; SETTINGS.size=5; SETTINGS.wrongRule='opponent'; SETTINGS.answerMode='choices';");
+    beginMatch();
+
+    // كل سؤال: أربعة اختيارات مختلفة بعد التوحيد، والإجابة بينها
+    out.options = Game.questions.every(q =>
+      q.options.length === 4 && q.options.includes(q.a) &&
+      new Set(q.options.map(normalizeAnswer)).size === 4);
+
+    // صحيح: الخلية لصاحب الدور
+    selectCell(0);
+    let t = Game.turn, q = Game.questions[0];
+    out.buttons = document.querySelectorAll('#choiceRow button').length;
+    chooseOption(q.options.indexOf(q.a));
+    await wait(1800);
+    out.right = Game.owners[0] === t && Game.activeCell === null;
+
+    // خاطئ: للفريق الآخر، والضغطة الثانية لا تُحتسب
+    selectCell(1);
+    t = Game.turn; q = Game.questions[1];
+    chooseOption(q.options.findIndex(o => o !== q.a));
+    chooseOption(q.options.indexOf(q.a));
+    await wait(1800);
+    out.wrong = Game.owners[1] === otherTeam(t);
+
+    // اختيار ضيف يصل في بثّة: المقدّم يسوّيه
+    selectCell(2);
+    t = Game.turn; q = Game.questions[2];
+    const s = JSON.parse(JSON.stringify(Game));
+    s.picked = q.options.indexOf(q.a); s.settings = null;
+    Online.apply(s);
+    await wait(1800);
+    out.guest = Game.owners[2] === t;
+
+    // الحكم اليدوي لا يتجاوز الاختيارات
+    selectCell(3);
+    revealAnswer();
+    out.noReveal = !Game.answerShown;
+    cancelQuestion();
+    return out;
+  });
+
+  check('أربعة اختيارات مختلفة والإجابة بينها', mc.options);
+  check('أربعة أزرار تظهر', mc.buttons === 4, `وجد ${mc.buttons}`);
+  check('الاختيار الصحيح يعطي الخلية لصاحب الدور', mc.right);
+  check('الخاطئ يعطيها للآخر، والضغطة الثانية لا تُحتسب', mc.wrong);
+  check('اختيار الضيف يسوّيه المقدّم', mc.guest);
+  check('«اعرض الإجابة» معطّل في وضع الاختيارات', mc.noReveal);
+  await page.evaluate(() => { eval("SETTINGS.answerMode='host';"); });
 
   /* ------------------------------------------------------- المباريات */
   console.log('\nمباريات كاملة');

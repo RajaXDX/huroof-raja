@@ -192,8 +192,28 @@ const UI = (function () {
 
     $('qAnswer').textContent = q ? q.a : '—';
     $('qAnswer').classList.add('hidden');
-    $('revealBtn').classList.remove('hidden');
     $('judgeRow').classList.add('hidden');
+
+    // وضع الاختيارات: أربعة أزرار بدل «اعرض الإجابة» وأزرار الحكم
+    const choices = SETTINGS.answerMode === 'choices' && q && q.options;
+    $('revealBtn').classList.toggle('hidden', !!choices);
+    const row = $('choiceRow');
+    row.innerHTML = '';
+    row.classList.toggle('hidden', !choices);
+    if (choices) {
+      const mine = Online.canPick();
+      q.options.forEach((opt, i) => {
+        const btn = el('button', { class: 'btn btn-choice', type: 'button' });
+        btn.onclick = () => chooseOption(i);
+        btn.disabled = !mine;
+        btn.appendChild(el('span', { class: 'choice-num' }, String(i + 1)));
+        btn.appendChild(document.createTextNode(opt));
+        row.appendChild(btn);
+      });
+      $('qHint').textContent = mine
+        ? 'اختاروا الإجابة — ضغطة واحدة فقط'
+        : 'بانتظار اختيار ' + teamName(Game.turn) + '…';
+    }
 
     // زر خطف النقطة يسمّي الفريق الآخر ويلبس لونه — «الآخر» وحدها تُربك
     // المقدّم وهو يحكم بسرعة بين فريقين
@@ -210,7 +230,24 @@ const UI = (function () {
     $('judgeRow').classList.remove('hidden');
   }
 
+  /** يلوّن الاختيار المضغوط والإجابة الصحيحة، ويقفل الأزرار عند الجميع */
+  function showPick() {
+    const q = Game.questions[Game.activeCell];
+    if (!q || Game.picked === null) return;
+    const correct = q.options[Game.picked] === q.a;
+
+    [...$('choiceRow').children].forEach((btn, i) => {
+      btn.disabled = true;
+      btn.classList.toggle('is-right', q.options[i] === q.a);
+      btn.classList.toggle('is-wrong', i === Game.picked && !correct);
+    });
+    $('qHint').textContent = correct ? '✔ إجابة صحيحة!' : '✖ إجابة خاطئة';
+    $('qHint').classList.toggle('hint-right', correct);
+    $('qHint').classList.toggle('hint-wrong', !correct);
+  }
+
   function closeQuestion() {
+    $('qHint').classList.remove('hint-right', 'hint-wrong');
     $('questionModal').classList.remove('show');
   }
 
@@ -382,7 +419,7 @@ const UI = (function () {
 
   return {
     renderBoard, renderStatus, renderRound, paintCell, highlightPath,
-    openQuestion, showAnswer, closeQuestion, updateTimer,
+    openQuestion, showAnswer, showPick, closeQuestion, updateTimer,
     showRoundResult, showMatchResult,
     applyRole, renderLobby, renderRoomBar,
   };
