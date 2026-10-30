@@ -22,8 +22,8 @@
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- الخطوط محزومة محلياً لا من Google — اللعبة يجب أن تعمل بلا إنترنت -->
-  <link rel="stylesheet" href="css/fonts.css?v=13">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/fonts.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body>
 
@@ -130,7 +130,9 @@
         <div>
           <b>السؤال</b>
           <p>صاحب الدور يختار أي مسدس فارغ، فيظهر سؤال إجابته تبدأ بذلك الحرف.
-             يجيبون بصوت عالٍ، ثم يُضغط «اعرض الإجابة» ويُحكم: صح أم خطأ.</p>
+             في وضع <b>الاختيارات</b> تظهر أربع إجابات يضغط الفريق واحدة منها
+             وتُصحَّح تلقائياً. وفي وضع <b>المقدّم يحكم</b> يجيبون بصوت عالٍ،
+             ثم يُضغط «اعرض الإجابة» ويُحكم: صح أم خطأ.</p>
         </div>
       </div>
       <div class="rule">
@@ -154,7 +156,9 @@
         <span class="rule-num">٦</span>
         <div>
           <b>اختصارات المقدّم</b>
-          <p><kbd>مسافة</kbd> تعرض الإجابة · <kbd>1</kbd> صح · <kbd>2</kbd> خطأ</p>
+          <p><kbd>مسافة</kbd> تعرض الإجابة · <kbd>1</kbd> صح · <kbd>2</kbd> خطأ ·
+             <kbd>3</kbd> النقطة للفريق الآخر. وفي وضع الاختيارات:
+             <kbd>1</kbd>–<kbd>4</kbd> تختار الإجابة.</p>
         </div>
       </div>
     </div>
@@ -309,6 +313,12 @@
     </div>
 
     <div class="opt-row">
+      <div class="opt-head">طريقة الإجابة</div>
+      <div class="opt-desc">الاختيارات تُصحَّح تلقائياً — تصلح للأونلاين بلا مكالمة وللأطفال</div>
+      <div class="choices" id="answerModeChoices"></div>
+    </div>
+
+    <div class="opt-row">
       <div class="opt-head">عند الإجابة الخاطئة</div>
       <div class="opt-desc">مصير الخلية بعد الخطأ</div>
       <div class="choices" id="wrongChoices"></div>
@@ -421,6 +431,9 @@
 
     <div class="q-answer hidden" id="qAnswer"></div>
 
+    <!-- وضع الاختيارات: تُبنى أزراره في ui.js من `options` السؤال -->
+    <div class="choice-row hidden" id="choiceRow"></div>
+
     <button class="btn btn-primary btn-big" id="revealBtn" onclick="revealAnswer()">اعرض الإجابة</button>
 
     <div class="judge-row hidden" id="judgeRow">
@@ -450,15 +463,15 @@
 </div>
 
 
-<script src="js/themes.js?v=13"></script>
-<script src="js/utils.js?v=13"></script>
-<script src="js/hive.js?v=13"></script>
-<script src="js/game.js?v=13"></script>
-<script src="js/ui.js?v=13"></script>
+<script src="js/themes.js?v=14"></script>
+<script src="js/utils.js?v=14"></script>
+<script src="js/hive.js?v=14"></script>
+<script src="js/game.js?v=14"></script>
+<script src="js/ui.js?v=14"></script>
 <!-- net قبل online: الأخير يسجّل مستمعيه على الأول لحظة التحميل -->
-<script src="js/net.js?v=13"></script>
-<script src="js/online.js?v=13"></script>
-<script src="js/setup.js?v=13"></script>
+<script src="js/net.js?v=14"></script>
+<script src="js/online.js?v=14"></script>
+<script src="js/setup.js?v=14"></script>
 
 <script>
 /* تسجيل عامل الخدمة — يخزّن اللعبة على الجهاز فتعمل بلا إنترنت.

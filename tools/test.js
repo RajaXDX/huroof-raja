@@ -134,6 +134,62 @@ function check(name, ok, detail) {
   check('10 إلغاءات تعطي 10 أسئلة مختلفة',
         refresh.repeat.distinct === 10, `وجد ${refresh.repeat.distinct} للحرف ${refresh.repeat.letter}`);
 
+  /* -------------------------------------------------- وضع الاختيارات */
+  console.log('\nوضع الاختيارات');
+
+  const mc = await page.evaluate(async () => {
+    const g = eval;
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const out = {};
+    g("SETTINGS.timer=0; SETTINGS.size=5; SETTINGS.wrongRule='opponent'; SETTINGS.answerMode='choices';");
+    beginMatch();
+
+    // كل سؤال: أربعة اختيارات مختلفة بعد التوحيد، والإجابة بينها
+    out.options = Game.questions.every(q =>
+      q.options.length === 4 && q.options.includes(q.a) &&
+      new Set(q.options.map(normalizeAnswer)).size === 4);
+
+    // صحيح: الخلية لصاحب الدور
+    selectCell(0);
+    let t = Game.turn, q = Game.questions[0];
+    out.buttons = document.querySelectorAll('#choiceRow button').length;
+    chooseOption(q.options.indexOf(q.a));
+    await wait(1800);
+    out.right = Game.owners[0] === t && Game.activeCell === null;
+
+    // خاطئ: للفريق الآخر، والضغطة الثانية لا تُحتسب
+    selectCell(1);
+    t = Game.turn; q = Game.questions[1];
+    chooseOption(q.options.findIndex(o => o !== q.a));
+    chooseOption(q.options.indexOf(q.a));
+    await wait(1800);
+    out.wrong = Game.owners[1] === otherTeam(t);
+
+    // اختيار ضيف يصل في بثّة: المقدّم يسوّيه
+    selectCell(2);
+    t = Game.turn; q = Game.questions[2];
+    const s = JSON.parse(JSON.stringify(Game));
+    s.picked = q.options.indexOf(q.a); s.settings = null;
+    Online.apply(s);
+    await wait(1800);
+    out.guest = Game.owners[2] === t;
+
+    // الحكم اليدوي لا يتجاوز الاختيارات
+    selectCell(3);
+    revealAnswer();
+    out.noReveal = !Game.answerShown;
+    cancelQuestion();
+    return out;
+  });
+
+  check('أربعة اختيارات مختلفة والإجابة بينها', mc.options);
+  check('أربعة أزرار تظهر', mc.buttons === 4, `وجد ${mc.buttons}`);
+  check('الاختيار الصحيح يعطي الخلية لصاحب الدور', mc.right);
+  check('الخاطئ يعطيها للآخر، والضغطة الثانية لا تُحتسب', mc.wrong);
+  check('اختيار الضيف يسوّيه المقدّم', mc.guest);
+  check('«اعرض الإجابة» معطّل في وضع الاختيارات', mc.noReveal);
+  await page.evaluate(() => { eval("SETTINGS.answerMode='host';"); });
+
   /* ------------------------------------------------------- المباريات */
   console.log('\nمباريات كاملة');
   const matches = await page.evaluate(() => {

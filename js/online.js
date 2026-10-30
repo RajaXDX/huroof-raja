@@ -72,6 +72,7 @@ const Online = (function () {
       turn: Game.turn,
       activeCell: Game.activeCell,
       answerShown: Game.answerShown,
+      picked: Game.picked,
       winner: Game.winner,
       winPath: Game.winPath,
       deadline: Game.deadline || 0,
@@ -84,6 +85,7 @@ const Online = (function () {
         timer: SETTINGS.timer,
         wrongRule: SETTINGS.wrongRule,
         swapSides: SETTINGS.swapSides,
+        answerMode: SETTINGS.answerMode,
       },
     };
   }
@@ -114,6 +116,7 @@ const Online = (function () {
         axis: state.axis, turn: state.turn, activeCell: state.activeCell,
         answerShown: state.answerShown, winner: state.winner, winPath: state.winPath,
         deadline: state.deadline || 0,
+        picked: state.picked === undefined ? null : state.picked,
       });
 
       if (Game.phase === 'playing' || Game.phase === 'round-over') {
@@ -131,7 +134,14 @@ const Online = (function () {
         UI.openQuestion(Game.activeCell);
         if (Game.answerShown) UI.showAnswer();
         UI.applyRole();
-        startTimer();
+        if (Game.picked !== null) {
+          // ضيف اختار: الجميع يرى النتيجة، والمقدّم وحده يسوّيها
+          stopTimer();
+          UI.showPick();
+          settlePick();
+        } else {
+          startTimer();
+        }
       } else if (hadOpen !== null) {
         stopTimer();
         UI.closeQuestion();
