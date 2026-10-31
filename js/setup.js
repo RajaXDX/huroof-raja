@@ -134,9 +134,19 @@ function renderSetup() {
   ], SETTINGS.timer, v => { SETTINGS.timer = v; });
 
   renderChoiceGroup('answerModeChoices', [
-    { label: 'اختيارات', value: 'choices' },
     { label: 'المقدّم يحكم', value: 'host' },
+    { label: 'اختيارات', value: 'choices' },
   ], SETTINGS.answerMode, v => { SETTINGS.answerMode = v; });
+
+  // مستوى كل فريق — الأطفال «سهل» والكبار «صعب» في نفس المباراة
+  const LEVELS = [
+    { label: 'سهل', value: 'easy' },
+    { label: 'متوسط', value: 'medium' },
+    { label: 'صعب', value: 'hard' },
+    { label: 'مختلط', value: 'mixed' },
+  ];
+  renderChoiceGroup('levelChoicesA', LEVELS, SETTINGS.levelA, v => { SETTINGS.levelA = v; });
+  renderChoiceGroup('levelChoicesB', LEVELS, SETTINGS.levelB, v => { SETTINGS.levelB = v; });
 
   renderChoiceGroup('wrongChoices', [
     { label: 'للفريق الآخر', value: 'opponent' },
@@ -200,11 +210,14 @@ function toggleSound() {
 
 /* ------------------------------------------------------------- التنقّل */
 
-function goHome()  { Sound.click(); showScreen('screen-home'); syncTabs(); refreshResumeBox(); }
-function goHowTo() { Sound.click(); showScreen('screen-howto'); syncTabs(); }
+/* شريط التراجع يخصّ اللوحة: ظهر فوق الرئيسية بعد مغادرتها، والضغط عليه
+   هناك يقفز باللاعب إلى لوحة لم يطلبها. كل خروج من اللوحة يُخفيه. */
+function goHome()  { Sound.click(); UI.hideUndo(); showScreen('screen-home'); syncTabs(); refreshResumeBox(); refreshLocalResume(); }
+function goHowTo() { Sound.click(); UI.hideUndo(); showScreen('screen-howto'); syncTabs(); }
 
 function goSetup() {
   Sound.click();
+  UI.hideUndo();
   showScreen('screen-setup');
   renderSetup();
   syncTabs();
@@ -240,16 +253,43 @@ function commitNames() {
   saveSettings();
 }
 
-function beginMatch() {
+/** هل توجد مباراة محلية جارية يمسحها البدء من جديد؟ */
+function matchInProgress() {
+  return !Online.active() && (Game.phase === 'playing' || Game.phase === 'round-over');
+}
+
+async function beginMatch() {
+  /* الإعدادات متاحة في منتصف المباراة، و«ابدأ المباراة» كان يمسحها بلا
+     سؤال — ضغطة لتغيير اللون تُضيع جولتين. */
+  if (matchInProgress() && !(await uiConfirm('عندكم مباراة جارية. تبدؤون مباراة جديدة وتُمسح؟'))) return;
   commitNames();
   startMatch();
 }
 
+/** «مباراة جديدة» من شاشة النهاية: أونلاين يرجع للردهة لتُعاد القسمة */
+function newMatch() {
+  if (Online.active()) {
+    if (!Online.isJudge()) return;
+    // الرجوع للردهة يسمح بنقل اللاعبين بين الفريقين ودخول المتأخرين
+    Game.phase = 'idle';
+    Online.publish('waiting');
+    showScreen('screen-room');
+    UI.renderLobby();
+    syncTabs();
+    return;
+  }
+  beginMatch();
+}
+
 async function quitMatch() {
+  // ⚠️ الإنهاء للمقدّم وحده أونلاين — كان أي ضيف ينهي المباراة على الجميع.
+  // والزر نفسه مخفي عن الضيف (`is-guest`)؛ هذا الحارس لمن يتجاوز الواجهة.
+  if (Online.active() && !Online.isJudge()) { uiToast(Online.msg('not_host')); return; }
   if (Game.phase === 'playing' && !(await uiConfirm('تنهي المباراة وترجع للإعدادات؟'))) return;
   stopTimer();
   Game.phase = 'idle';
-  $('roundOverlay').classList.remove('show');
+  UI.hideRoundResult();
+  UI.hideUndo();
   UI.closeQuestion();
 
   // أونلاين: العودة للردهة لا للإعدادات — الروم قائمة والباقون فيها
@@ -260,13 +300,57 @@ async function quitMatch() {
     syncTabs();
     return;
   }
+  clearLocalMatch();
   goSetup();
+}
+
+/* ------------------------------------------------ استئناف مباراة محلية */
+
+function refreshLocalResume() {
+  const m = savedLocalMatch();
+  const box = $('localResumeBox');
+  if (!box) return;
+  box.classList.toggle('hidden', !m);
+  if (m) {
+    const s = m.settings || {};
+    $('localResumeText').textContent =
+      (s.teamA ? s.teamA.name : 'الفريق الأول') + ' ' + m.game.wins.A + ' — ' +
+      m.game.wins.B + ' ' + (s.teamB ? s.teamB.name : 'الفريق الثاني') +
+      ' · الجولة ' + m.game.round;
+  }
+}
+
+function resumeLocalMatch() {
+  const m = savedLocalMatch();
+  if (!m) return;
+  // إعدادات المباراة نفسها (الأسماء والحجم والقواعد) — لا ما تغيّر بعدها.
+  // الثيم والصوت شأن الجهاز لا المباراة، فيبقيان كما هما الآن.
+  const s = Object.assign({}, m.settings || {});
+  delete s.palette; delete s.sound;
+  Object.assign(SETTINGS, s);
+  restoreGame(m.game);
+  Game.deadline = 0;
+  Sound.click();
+  UI.renderRound();
+  UI.applyRole();
+  if (Game.phase === 'round-over') UI.showRoundResult();
+  else if (Game.activeCell !== null) {
+    UI.openQuestion(Game.activeCell);
+    if (Game.answerShown) UI.showAnswer();
+    UI.updateTimer(null);
+  }
+}
+
+function dropLocalMatch() {
+  clearLocalMatch();
+  refreshLocalResume();
 }
 
 /* ------------------------------------------------------------- الأونلاين */
 
 function goOnline() {
   Sound.click();
+  UI.hideUndo();
   $('onlineName').value = Net.savedName();
   showScreen('screen-online');
   syncTabs();
@@ -437,27 +521,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     refreshResumeBox();
   }
+  refreshLocalResume();
+
+  /* تحذير قبل إغلاق الصفحة وسط مباراة محلية. المباراة محفوظة وتُستأنف،
+     لكن من يغلق بالخطأ يستحق أن يُنبَّه قبل أن يخرج. */
+  window.addEventListener('beforeunload', e => {
+    if (matchInProgress()) { e.preventDefault(); e.returnValue = ''; }
+  });
 
   // اختصارات المقدّم. لا نربط Escape بالإغلاق عمداً: إغلاق السؤال بلا حكم
   // يعني تهرّباً من الخلية، والدور لا يتقدّم — فتعلق اللعبة.
   document.addEventListener('keydown', (e) => {
+    // Ctrl+Z: تراجع عن آخر حكم — يعمل والنافذة مغلقة، فهي تُغلق بعد الحكم
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      undoVerdict();
+      return;
+    }
     if (!$('questionModal').classList.contains('show')) return;
+    if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
 
-    // وضع الاختيارات: الأرقام تختار، ولا حكم يدوي يتجاوز التصحيح الآلي
+    // وضع الاختيارات: الأرقام تختار، و0 «لا نعرف»، ولا حكم يدوي يتجاوز التصحيح الآلي
     if (SETTINGS.answerMode === 'choices') {
       if (e.key >= '1' && e.key <= '4') chooseOption(Number(e.key) - 1);
+      else if (e.key === '0') chooseOption(-1);
       return;
     }
 
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       if (!Game.answerShown) revealAnswer();
-    } else if (e.key === '1') {
-      resolveAnswer(true);
-    } else if (e.key === '2') {
-      resolveAnswer(false);
-    } else if (e.key === '3') {
-      awardOther();
+      return;
     }
+    /* ⚠️ أرقام الحكم لا تعمل قبل كشف الإجابة. كانت ضغطة `1` شاردة والسؤال
+       مفتوح تمنح الخلية فوراً، بل قد تُنهي الجولة. */
+    if (!Game.answerShown) return;
+    if (e.key === '1') resolveAnswer(true);
+    else if (e.key === '2') resolveAnswer(false);
+    else if (e.key === '3') awardOther();
   });
 });

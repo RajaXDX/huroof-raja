@@ -38,10 +38,18 @@ const Online = (function () {
   /* المضيف: يبدأ المباراة، ويكشف الإجابة، ويحكم، وينقل الجولة */
   function isJudge() { return !active || Net.isHost(); }
 
-  /* اختيار خلية: أي لاعب في الفريق صاحب الدور. وفي المحلي الجميع. */
+  /* اختيار خلية: أي لاعب في الفريق صاحب الدور. وفي المحلي الجميع.
+     ⚠️ والمضيف أيضاً حين يخلو الفريق صاحب الدور من لاعب متصل — خرج آخر
+     لاعبيه أو انقطع. بلا هذا تتجمّد المباراة: الدور لفريق لا أحد فيه
+     يستطيع الضغط، ولا أحد غيره مسموح له. */
+  function turnTeamIsEmpty() {
+    return !Net.teamMembers(Game.turn).some(p => p.online !== false);
+  }
+
   function canPick() {
     if (!active) return true;
-    return Net.myTeam() === Game.turn;
+    if (Net.myTeam() === Game.turn) return true;
+    return Net.isHost() && turnTeamIsEmpty();
   }
 
   function whyCannotPick() {
@@ -53,29 +61,12 @@ const Online = (function () {
 
   /* ----------------------------------------------- الحالة المُتبادَلة */
 
-  /* ⚠️ لا نبثّ `timerId` (مؤقّت محلي لا معنى له عند غيرك) ولا `timeLeft`
-     (يُشتقّ من `deadline`). والباقي كله يُبثّ لأن اللوحة يجب أن تكون
-     **نفسها** عند الجميع: الحروف عشوائية والأسئلة مسحوبة عشوائياً، فلا
-     يمكن لأي جهاز أن يعيد توليدها بنفسه ويصل لنفس النتيجة. */
+  /* الحالة كلها تُبثّ لأن اللوحة يجب أن تكون **نفسها** عند الجميع: الحروف
+     عشوائية والأسئلة مسحوبة عشوائياً، فلا يمكن لأي جهاز أن يعيد توليدها
+     بنفسه ويصل لنفس النتيجة. الحقول نفسها التي يحفظها التراجع والمباراة
+     المحلية — مصدر واحد في `serializeGame`. */
   function snapshot() {
-    return {
-      phase: Game.phase,
-      round: Game.round,
-      wins: Game.wins,
-      rows: Game.rows,
-      cols: Game.cols,
-      cells: Game.cells,
-      owners: Game.owners,
-      letters: Game.letters,
-      questions: Game.questions,
-      axis: Game.axis,
-      turn: Game.turn,
-      activeCell: Game.activeCell,
-      answerShown: Game.answerShown,
-      picked: Game.picked,
-      winner: Game.winner,
-      winPath: Game.winPath,
-      deadline: Game.deadline || 0,
+    return Object.assign(serializeGame(), {
       // إعدادات المضيف تحكم المباراة — والثيم شأن شخصي فلا يُبثّ
       settings: {
         teamA: SETTINGS.teamA,
@@ -86,8 +77,10 @@ const Online = (function () {
         wrongRule: SETTINGS.wrongRule,
         swapSides: SETTINGS.swapSides,
         answerMode: SETTINGS.answerMode,
+        levelA: SETTINGS.levelA,
+        levelB: SETTINGS.levelB,
       },
-    };
+    });
   }
 
   function publish(status) {
@@ -108,30 +101,46 @@ const Online = (function () {
 
       const wasPhase = Game.phase;
       const hadOpen = Game.activeCell;
+      const hadQuestion = hadOpen !== null && Game.questions[hadOpen] ? Game.questions[hadOpen].q : null;
+      const oldOwners = (Game.owners || []).slice();
+      const oldTurn = Game.turn;
+      const sameRound = Game.round === state.round && Game.cells.length === (state.cells || []).length;
 
-      Object.assign(Game, {
-        phase: state.phase, round: state.round, wins: state.wins,
-        rows: state.rows, cols: state.cols, cells: state.cells,
-        owners: state.owners, letters: state.letters, questions: state.questions,
-        axis: state.axis, turn: state.turn, activeCell: state.activeCell,
-        answerShown: state.answerShown, winner: state.winner, winPath: state.winPath,
-        deadline: state.deadline || 0,
-        picked: state.picked === undefined ? null : state.picked,
-      });
+      restoreGame(state);
+
+      // كل سؤال يُعرض يُحفظ عند كل جهاز — فذاكرة الأسئلة واحدة في الروم
+      if (Game.activeCell !== null) markSeen(Game.questions[Game.activeCell]);
 
       if (Game.phase === 'playing' || Game.phase === 'round-over') {
-        // إعادة بناء اللوحة فقط عند تغيّر الجولة — وإلا وميض في كل بثّ
-        const boardChanged = wasPhase === 'idle' || Game.round !== apply._round ||
+        /* إعادة بناء اللوحة عند تغيّر الجولة — وإلا وميض في كل بثّ.
+           وعند الرجوع من «انتهت الجولة» إلى اللعب: تراجع المقدّم عن الحكم
+           الحاسم، فيجب أن يختفي إبراز مسار الفوز والإعلان معاً. */
+        const undone = wasPhase === 'round-over' && Game.phase === 'playing';
+        const boardChanged = wasPhase === 'idle' || Game.round !== apply._round || undone ||
                              document.querySelectorAll('.hex').length !== Game.cells.length;
         apply._round = Game.round;
 
+        if (undone) UI.hideRoundResult();
         if (boardChanged) UI.renderRound();
         else { Game.owners.forEach((_, i) => UI.paintCell(i)); UI.renderStatus(); }
+
+        // من أخذ الخلية؟ يُعلَن عند المشاهدين كما عند المقدّم
+        if (sameRound && !undone) {
+          Game.owners.forEach((o, i) => {
+            if (o !== oldOwners[i] && oldOwners[i] === null && o !== null) {
+              UI.flashVerdict(i, o, oldTurn);
+            }
+          });
+        }
       }
 
       // نافذة السؤال تتبع `activeCell` عند الجميع
       if (Game.activeCell !== null) {
-        UI.openQuestion(Game.activeCell);
+        const q = Game.questions[Game.activeCell];
+        const reopened = hadOpen !== Game.activeCell || !q || q.q !== hadQuestion;
+        if (reopened || !UI.isQuestionOpen()) {
+          UI.openQuestion(Game.activeCell);
+        }
         if (Game.answerShown) UI.showAnswer();
         UI.applyRole();
         if (Game.picked !== null) {
@@ -139,6 +148,10 @@ const Online = (function () {
           stopTimer();
           UI.showPick();
           settlePick();
+        } else if (Game.answerShown || !Game.deadline) {
+          // الإجابة كُشفت: الساعة توقّفت عند المقدّم، فتتوقّف هنا أيضاً
+          stopTimer();
+          UI.updateTimer(null);
         } else {
           startTimer();
         }
@@ -161,11 +174,20 @@ const Online = (function () {
     if (!room) return;
     UI.renderRoomBar();
 
-    // ما زلنا في الردهة: لا مباراة بعد
+    // في الردهة: لا مباراة بعد، أو أنهاها المقدّم وأرجع الجميع إليها
     if (!room.state || !room.state.phase || room.state.phase === 'idle') {
+      /* ⚠️ كان الضيف ينتقل للردهة فقط إن كانت مباراته هو منتهية، فإذا
+         أنهى المقدّم مباراة جارية بقي الضيف متجمّداً على لوحة قديمة. */
+      if (Game.phase !== 'idle') {
+        stopTimer();
+        Game.phase = 'idle';
+        Game.activeCell = null;
+        UI.closeQuestion();
+        UI.hideRoundResult();
+        UI.hideUndo();
+      }
       UI.renderLobby();
-      if (!document.getElementById('screen-room').classList.contains('active') &&
-          Game.phase === 'idle') {
+      if (!UI.isScreen('screen-room')) {
         showScreen('screen-room');
         syncTabs();
       }
@@ -174,11 +196,16 @@ const Online = (function () {
     apply(room.state);
   }
 
-  async function enter(fn, args) {
+  async function enter(fn, args, asHost) {
     const data = await fn.apply(null, args);
     if (data.error) { uiToast(msg(data.error)); return false; }
     localSettingsBackup = JSON.parse(JSON.stringify(loadJSON('huroof_settings', {})));
     active = true;
+    /* الأونلاين يبدأ بالاختيارات: اللاعبون في أماكن مختلفة لا يسمعون
+       بعضهم، والتصحيح الآلي هو ما يجعل اللعب ممكناً بلا مكالمة. وللمقدّم
+       تبديلها من الردهة لو كانوا على مكالمة. (في الذاكرة لا التخزين —
+       إعداد اللاعب المحلي يعود كما كان عند الخروج.) */
+    if (asHost) SETTINGS.answerMode = 'choices';
     onRoom(data);
     return true;
   }
@@ -197,7 +224,8 @@ const Online = (function () {
     Game.phase = 'idle';
     Game.activeCell = null;
     UI.closeQuestion();
-    document.getElementById('roundOverlay').classList.remove('show');
+    UI.hideRoundResult();
+    UI.hideUndo();
     UI.renderRoomBar();
   }
 
@@ -210,7 +238,7 @@ const Online = (function () {
     active()  { return active; },
     isJudge, canPick, whyCannotPick, publish, apply, msg, leave,
 
-    async create(name) { return enter(Net.createRoom, [name]); },
+    async create(name) { return enter(Net.createRoom, [name], true); },
     async join(code, name) { return enter(Net.joinRoom, [code, name]); },
     async resume(code) { return enter(Net.resume, [code]); },
   };

@@ -18,7 +18,15 @@ const DEFAULT_SETTINGS = {
   timer: 30,            // ثواني لكل سؤال، 0 = بلا مؤقت
   wrongRule: 'opponent',// opponent = الخلية للفريق الآخر | block = تُقفل | free = تبقى متاحة
   swapSides: true,      // تبديل الاتجاهات كل جولة (يلغي أفضلية الاتجاه العمودي)
-  answerMode: 'choices',// choices = أربعة اختيارات تُصحَّح آلياً | host = يُقال بصوت عالٍ ويحكم المقدّم
+  // host = يُقال بصوت عالٍ ويحكم المقدّم | choices = أربعة اختيارات تُصحَّح آلياً
+  // ⚠️ الافتراضي المحلي «المقدّم يحكم» عمداً: الإجابة الحرّة بصوت عالٍ هي روح
+  // خلية الحروف، والتعرّف على إجابة من أربع أسهل بكثير من استحضارها. أما
+  // الأونلاين فيبدأ بالاختيارات (`Online.create`) لأنه لا يفترض مكالمة.
+  answerMode: 'host',
+  // مستوى أسئلة كل فريق: easy | medium | hard | mixed. لكل فريق مستواه حتى
+  // يلعب الأطفال ضد الكبار — كل فريق يُسأل بمستواه حين يكون الدور له.
+  levelA: 'mixed',
+  levelB: 'mixed',
   sound: true,
 };
 
@@ -58,8 +66,33 @@ function colorSwatches() {
 
 /* ------------------------------------------------------------ بنك الأسئلة */
 
-let BANK = {};        // { 'ب': [{q,a}, ...], ... }
-let usedQuestions = {}; // { 'ب': Set(indices) } — حتى لا يتكرر السؤال في نفس المباراة
+let BANK = {};        // { 'ب': [{q,a,d,choices,alt,cat}, ...], ... }
+
+/* ذاكرة الأسئلة التي **عُرضت** فعلاً، محفوظة بين المباريات.
+   كانت تُصفَّر مع كل مباراة، فتبدأ الإعادة في الليلة الثانية من اللعب.
+   والمفتاح نصّ السؤال لا رقمه: الرقم يتغيّر كلما أُضيف سؤال للبنك.
+   ⚠️ «عُرض» لا «سُحب»: الخلية التي لم تُفتح لا تستهلك سؤالاً. */
+const SEEN_KEY = 'huroof_seen';
+let SEEN = loadJSON(SEEN_KEY, {});   // { 'ب': ['نص سؤال', ...] }
+
+function markSeen(q) {
+  if (!q || !q.letter || !q.q) return;
+  const list = SEEN[q.letter] || (SEEN[q.letter] = []);
+  if (list.includes(q.q)) return;
+  list.push(q.q);
+  saveJSON(SEEN_KEY, SEEN);
+}
+
+/* المستويات المسموحة لكل اختيار، بترتيب التفضيل. «سهل» لا ينزلق إلى
+   الأصعب إلا إن خلا الحرف من السهل تماماً — طفل يُعاد عليه سؤال سهل
+   أهون من طفل يُسأل سؤالاً صعباً. */
+const LEVEL_TIERS = {
+  easy:   [[1], [2]],
+  medium: [[2], [1, 3]],
+  hard:   [[3], [2]],
+  mixed:  [[1, 2, 3]],
+};
+function teamLevel(t) { return SETTINGS[t === 'A' ? 'levelA' : 'levelB'] || 'mixed'; }
 
 async function loadBank() {
   try {
@@ -87,25 +120,46 @@ function bankStats() {
 }
 
 /**
- * يسحب سؤالاً غير مستخدم لهذا الحرف.
- * لو استُهلكت كل أسئلة الحرف نعيد التدوير بدل أن نعطّل الخلية.
+ * يسحب سؤالاً لهذا الحرف بمستوى الفريق، مفضّلاً ما لم يُعرض قط.
+ *
+ * يُستدعى **عند فتح الخلية** لا عند بداية الجولة: فلا تستهلك الخلايا التي
+ * لا يفتحها أحد أسئلة، ويُعرف حينها من يجيب فيُختار مستواه.
+ *
+ * لو عُرضت كل أسئلة المستوى نعيد تدوير ذلك المستوى وحده — لا ننسى ذاكرة
+ * الحرف كلها، ولا نقفز لمستوى آخر ما دام في المستوى أسئلة.
+ *
+ * @param {string} letter
+ * @param {string} [level] easy | medium | hard | mixed
+ * @param {string} [avoid] نص سؤال لا يُعاد (عند «سؤال آخر»)
  */
-function drawQuestion(letter) {
+function drawQuestion(letter, level, avoid) {
   const list = BANK[letter];
   if (!list || !list.length) return null;
 
-  if (!usedQuestions[letter]) usedQuestions[letter] = new Set();
-  if (usedQuestions[letter].size >= list.length) usedQuestions[letter].clear();
+  const seen = new Set(SEEN[letter] || []);
+  const tiers = LEVEL_TIERS[level] || LEVEL_TIERS.mixed;
+  const levelOf = q => q.d || 2;   // ما قبل المستويات كان كله متوسطاً
 
-  const available = list
-    .map((_, i) => i)
-    .filter(i => !usedQuestions[letter].has(i));
+  for (const ds of tiers) {
+    const pool = list.map((_, i) => i).filter(i => ds.includes(levelOf(list[i])));
+    if (!pool.length) continue;
 
-  const pick = available[Math.floor(Math.random() * available.length)];
-  usedQuestions[letter].add(pick);
-  const q = Object.assign({ letter }, list[pick]);
-  q.options = buildOptions(q, list);
-  return q;
+    let fresh = pool.filter(i => !seen.has(list[i].q) && list[i].q !== avoid);
+    if (!fresh.length) {
+      // المستوى نفد: ننسى ذاكرته هو فقط ونبدأ دورة جديدة فيه
+      const tierQs = new Set(pool.map(i => list[i].q));
+      SEEN[letter] = (SEEN[letter] || []).filter(t => !tierQs.has(t));
+      saveJSON(SEEN_KEY, SEEN);
+      fresh = pool.filter(i => list[i].q !== avoid);
+      if (!fresh.length) fresh = pool;
+    }
+
+    const pick = fresh[Math.floor(Math.random() * fresh.length)];
+    const q = Object.assign({ letter }, list[pick]);
+    q.options = buildOptions(q, list);
+    return q;
+  }
+  return null;
 }
 
 /** توحيد كتابة الإجابة للمقارنة: بلا «ال» وبلا فروق الهمزة والتاء المربوطة */
@@ -181,8 +235,51 @@ const Game = {
   // من فتح السؤال متأخراً يرى وقتاً أطول، ومن جُمّد تبويبه يرى وقتاً متوقّفاً.
   deadline: 0,
   answerShown: false,
-  picked: null,       // رقم الاختيار الذي ضغطه الفريق في وضع الاختيارات
+  picked: null,       // رقم الاختيار في وضع الاختيارات، و-1 = «لا نعرف»
+  firstVertical: 'A', // من أخذ العمودي في الجولة الأولى — قرعة عند بدء المباراة
+  // لماذا انتهت الجولة: path = وصل · count = لا أحد يستطيع الوصل فحُسمت
+  // بعدد الخلايا · draw = تعادل في العدد. يحتاجها إعلان الجولة ليقول الصدق.
+  roundReason: null,
 };
+
+/* ------------------------------------------------- حفظ الحالة واستعادتها */
+
+/* الحالة كلها كنص JSON واحد. يستعملها ثلاثة: البثّ أونلاين، وحفظ المباراة
+   المحلية، والتراجع عن آخر حكم. مصدر واحد حتى لا ينسى أحدها حقلاً جديداً.
+   ⚠️ لا `timerId` (مؤقّت محلي) ولا `timeLeft` (يُشتقّ من `deadline`). */
+const GAME_FIELDS = ['phase', 'round', 'wins', 'rows', 'cols', 'cells', 'owners',
+  'letters', 'questions', 'axis', 'turn', 'activeCell', 'answerShown', 'picked',
+  'winner', 'winPath', 'deadline', 'firstVertical', 'roundReason'];
+
+function serializeGame() {
+  const out = {};
+  GAME_FIELDS.forEach(k => { out[k] = Game[k]; });
+  return JSON.parse(JSON.stringify(out));
+}
+
+function restoreGame(state) {
+  GAME_FIELDS.forEach(k => { if (k in state) Game[k] = state[k]; });
+  if (Game.picked === undefined) Game.picked = null;
+  Game.deadline = Game.deadline || 0;
+}
+
+/* ------------------------------------------------- المباراة المحلية المحفوظة */
+
+/* تحديث الصفحة كان يمسح المباراة بلا تحذير. نحفظها بعد كل حكم فتُستأنف
+   من الرئيسية. المحلي وحده: الأونلاين له جدوله وعودته التلقائية. */
+const MATCH_KEY = 'huroof_match';
+
+function saveLocalMatch() {
+  if (Online.active()) return;
+  if (Game.phase !== 'playing' && Game.phase !== 'round-over') { clearLocalMatch(); return; }
+  saveJSON(MATCH_KEY, { at: Date.now(), game: serializeGame(), settings: SETTINGS });
+}
+function clearLocalMatch() { try { localStorage.removeItem(MATCH_KEY); } catch (e) {} }
+function savedLocalMatch() {
+  const m = loadJSON(MATCH_KEY, null);
+  if (!m || !m.game || !m.game.cells || !m.game.cells.length) return null;
+  return m;
+}
 
 function teamName(t) { return t === 'A' ? SETTINGS.teamA.name : SETTINGS.teamB.name; }
 function otherTeam(t) { return t === 'A' ? 'B' : 'A'; }
@@ -204,10 +301,16 @@ function startMatch() {
 
   Game.round = 0;
   Game.wins = { A: 0, B: 0 };
-  usedQuestions = {};
+  // من يأخذ العمودي أولاً قرعة — كان الفريق الأول دائماً، فيأخذه في
+  // الجولتين الأولى والثالثة من ثلاث
+  Game.firstVertical = coin();
+  lastVerdict = null;
   Sound.start();
   startRound();
 }
+
+/** قرعة عادلة بين الفريقين */
+function coin() { return Math.random() < 0.5 ? 'A' : 'B'; }
 
 function startRound() {
   Game.round += 1;
@@ -217,33 +320,49 @@ function startRound() {
   Game.owners = Game.cells.map(() => null);
   Game.winner = null;
   Game.winPath = null;
+  Game.roundReason = null;
   Game.activeCell = null;
   Game.phase = 'playing';
+  lastVerdict = null;
+  // إعلان الجولة السابقة كان يُخفى بزرّ «الجولة التالية» وحده، فكل طريق
+  // آخر للجولة الجديدة يتركه مفتوحاً فوق اللوحة — بل فوق الرئيسية أحياناً
+  UI.hideRoundResult();
+  UI.hideUndo();
 
-  // ترتيب الحروف عشوائي في كل جولة — هذا مطلب أساسي في اللعبة
+  // ترتيب الحروف عشوائي في كل جولة — هذا مطلب أساسي في اللعبة.
+  // والأسئلة تُسحب عند فتح كل خلية (`selectCell`) لا هنا.
   Game.letters = pickLetters(Game.cells.length);
-  Game.questions = Game.letters.map(l => drawQuestion(l));
+  Game.questions = Game.letters.map(() => null);
 
-  // تبديل الاتجاهات: اللوحة المربعة تعطي الاتجاه العمودي أفضلية ~3%
-  // لأن السداسيات تتداخل رأسياً فتصير اللوحة أعرض من كونها عالية.
-  // التبديل كل جولة يلغي هذه الأفضلية على مدى المباراة.
-  const swap = SETTINGS.swapSides && (Game.round % 2 === 0);
-  Game.axis = swap
-    ? { A: 'horizontal', B: 'vertical' }
-    : { A: 'vertical',   B: 'horizontal' };
+  /* الاتجاهات: اللوحة المربعة تعطي العمودي أفضلية ~3% لأن السداسيات تتداخل
+     رأسياً. التبديل كل جولة يلغيها على عدد زوجي من الجولات — أما الجولة
+     الحاسمة (التعادل في آخر جولة ممكنة) فالتبديل وحده يعطيها لصاحب الجولة
+     الأولى مرة ثانية، فتُحسم بقرعة. */
+  const decider = Game.round > 1 && Game.round === SETTINGS.rounds &&
+                  Game.wins.A === Game.wins.B;
+  let vertical;
+  if (decider) vertical = coin();
+  else if (SETTINGS.swapSides && Game.round % 2 === 0) vertical = otherTeam(Game.firstVertical);
+  else vertical = Game.firstVertical;
+  Game.axis = vertical === 'A'
+    ? { A: 'vertical',   B: 'horizontal' }
+    : { A: 'horizontal', B: 'vertical' };
 
-  // من يبدأ: الجولة الأولى قرعة، وبعدها يبدأ الخاسر
-  if (Game.round === 1) {
-    Game.turn = Math.random() < 0.5 ? 'A' : 'B';
+  // من يبدأ: الجولة الأولى قرعة، وبعدها يبدأ المتأخّر، وعند التعادل قرعة
+  // — كانت تذهب للفريق الأول دائماً، أي في كل جولة حاسمة
+  if (Game.round === 1 || Game.wins.A === Game.wins.B) {
+    Game.turn = coin();
   } else {
     Game.turn = Game.wins.A > Game.wins.B ? 'B' : 'A';
   }
 
   Game.activeCell = null;
   Game.picked = null;
+  Game.answerShown = false;
   Game.deadline = 0;
   UI.renderRound();
   UI.applyRole();
+  saveLocalMatch();
   Online.publish('playing');
 }
 
@@ -256,6 +375,14 @@ function selectCell(index) {
 
   // أونلاين: الاختيار لمن عليه الدور. المنع هنا لا في ui.js — ui لا يقرّر.
   if (!Online.canPick()) { uiToast(Online.whyCannotPick()); return; }
+
+  // السؤال يُسحب الآن، بمستوى الفريق الذي سيجيب
+  if (!Game.questions[index]) {
+    Game.questions[index] = drawQuestion(Game.letters[index], teamLevel(Game.turn));
+  }
+  markSeen(Game.questions[index]);
+  lastVerdict = null;   // حكم جديد قادم — التراجع عن السابق لم يعد منطقياً
+  UI.hideUndo();
 
   Game.activeCell = index;
   Game.answerShown = false;
@@ -295,6 +422,7 @@ function tickTimer() {
   if (Date.now() >= Game.deadline) {
     stopTimer();
     if (Game.picked !== null) return;   // اختاروا قبل الصفر — التسوية جارية
+    if (Game.answerShown) return;       // الإجابة كُشفت — الحكم للمقدّم لا للساعة
     if (Online.isJudge()) {
       uiToast('انتهى الوقت!');
       resolveAnswer(false);
@@ -307,32 +435,48 @@ function stopTimer() {
   Game.timerId = null;
 }
 
+/**
+ * ⚠️ يوقف المؤقّت. المؤقّت يحدّ وقت **الإجابة** لا وقت حكم المقدّم: كان
+ * يواصل العدّ بعد الكشف فيحكم بالخطأ وحده عند الصفر والعائلة ما زالت
+ * تتناقش هل «الهادئ» تُقبل عن «المحيط الهادئ».
+ */
 function revealAnswer() {
   if (!Online.isJudge()) return;
   if (SETTINGS.answerMode === 'choices') return;   // الاختيارات تكشف نفسها
+  stopTimer();
+  Game.deadline = 0;
+  UI.updateTimer(null);
   Game.answerShown = true;
   UI.showAnswer();
   Online.publish();
 }
 
 /**
- * يستبدل سؤال الخلية بسؤال آخر من نفس الحرف.
- *
- * يُستدعى كلما فُتح سؤال ثم بقيت الخلية متاحة بلا مالك. السبب: السؤال
- * عُرض على الطاولة وربما كُشفت إجابته، فإعادة عرضه نفسه يجعل الفتحة
- * الثانية بلا معنى — الجميع يعرف الجواب.
- *
- * `drawQuestion` تتجنّب المكرر داخل المباراة أصلاً، فالسؤال الجديد مختلف
- * ما لم تنفد أسئلة الحرف فتُعاد دورتها.
+ * «سؤال آخر»: يبدّل سؤال الخلية المفتوحة بسؤال جديد من نفس الحرف والمستوى،
+ * والخلية تبقى مفتوحة والدور كما هو. للسؤال الغامض أو غير المناسب
+ * للجالسين — كان الحلّ الوحيد إغلاق الخلية والتظاهر بأنها لم تُفتح.
  */
-function refreshQuestion(index) {
-  const next = drawQuestion(Game.letters[index]);
-  if (next) Game.questions[index] = next;
+function replaceQuestion() {
+  if (Game.activeCell === null || !Online.isJudge()) return;
+  if (Game.picked !== null) return;   // اختاروا — الحكم جارٍ
+  const index = Game.activeCell;
+  const old = Game.questions[index];
+  const next = drawQuestion(Game.letters[index], teamLevel(Game.turn), old && old.q);
+  if (!next) return;
+  Game.questions[index] = next;
+  markSeen(next);
+  Game.answerShown = false;
+  Game.deadline = SETTINGS.timer ? Date.now() + SETTINGS.timer * 1000 : 0;
+  UI.openQuestion(index);
+  UI.applyRole();
+  startTimer();
+  Online.publish();
 }
 
 /**
  * يغلق السؤال ويعيد الخلية كما كانت بلا حكم ولا تبديل دور.
- * موجود لأن المقدّم قد يفتح خلية بالخطأ، أو يجد السؤال غامضاً.
+ * موجود لأن المقدّم قد يفتح خلية بالخطأ. سؤالها عُرض فيُنسى، والفتحة
+ * التالية تسحب غيره.
  */
 function cancelQuestion() {
   if (Game.activeCell === null) return;
@@ -344,8 +488,9 @@ function cancelQuestion() {
   Game.answerShown = false;
   Game.picked = null;
   Game.deadline = 0;
+  Game.questions[index] = null;
   UI.closeQuestion();
-  refreshQuestion(index);
+  saveLocalMatch();
   Online.publish();
 }
 
@@ -367,8 +512,9 @@ function chooseOption(i) {
   if (Game.picked !== null) return;                 // اختيار واحد لكل سؤال
   if (!Online.canPick()) { uiToast(Online.whyCannotPick()); return; }
 
+  // -1 = «لا نعرف»: استسلام صريح بدل انتظار الثلاثين ثانية كاملة
   const q = Game.questions[Game.activeCell];
-  if (!q || !q.options || !(i >= 0 && i < q.options.length)) return;
+  if (!q || !q.options || !(i === -1 || (i >= 0 && i < q.options.length))) return;
 
   Game.picked = i;
   stopTimer();
@@ -380,7 +526,7 @@ function chooseOption(i) {
 /** هل الاختيار المضغوط هو الإجابة؟ */
 function pickIsCorrect() {
   const q = Game.questions[Game.activeCell];
-  return !!q && q.options[Game.picked] === q.a;
+  return !!q && Game.picked >= 0 && q.options[Game.picked] === q.a;
 }
 
 /**
@@ -454,6 +600,10 @@ function awardOther() {
 function settleQuestion(owner, scored) {
   stopTimer();
 
+  // لقطة قبل أي تغيير — للتراجع. ضغطة خاطئة كانت تسلّم خلية، بل قد تُنهي
+  // الجولة، بلا أي رجعة.
+  lastVerdict = serializeGame();
+
   const index = Game.activeCell;
   const answering = Game.turn;
 
@@ -462,14 +612,16 @@ function settleQuestion(owner, scored) {
 
   Game.activeCell = null;
   Game.picked = null;
+  Game.answerShown = false;
   Game.deadline = 0;
   UI.closeQuestion();
   UI.paintCell(index);
   UI.renderStatus();
+  UI.flashVerdict(index, owner, answering);
 
   // قاعدة «تبقى متاحة» تترك الخلية بلا مالك. سؤالها عُرض وكُشفت إجابته،
-  // فنبدّله حتى لا تكون الفتحة التالية مجرد إعادة لما سمعه الجميع.
-  if (Game.owners[index] === null) refreshQuestion(index);
+  // فنُفرغها لتسحب الفتحة التالية سؤالاً جديداً.
+  if (Game.owners[index] === null) Game.questions[index] = null;
 
   const finished = checkRoundEnd();
   if (!finished) {
@@ -477,8 +629,52 @@ function settleQuestion(owner, scored) {
     UI.renderStatus();
     UI.applyRole();
   }
+  saveLocalMatch();
+  if (Online.isJudge()) UI.offerUndo();
   // بثّة واحدة بعد استقرار الحالة — سواء انتهت الجولة أم تبدّل الدور
   Online.publish();
+}
+
+/* ------------------------------------------------------------- التراجع */
+
+let lastVerdict = null;   // حالة اللعبة قبل آخر حكم، أو null
+
+/** هل يوجد حكم يمكن التراجع عنه؟ للمقدّم وحده */
+function canUndo() { return !!lastVerdict && Online.isJudge(); }
+
+/**
+ * يُرجع آخر حكم: الخلية تعود متاحة، والسؤال يُفتح من جديد كما كان،
+ * والدور لصاحبه — حتى لو كان الحكم قد أنهى الجولة.
+ * للمقدّم وحده، ولآخر حكم فقط، وقبل فتح أي خلية بعده.
+ */
+function undoVerdict() {
+  if (!Online.isJudge() || !lastVerdict) return;
+  const before = lastVerdict;
+  lastVerdict = null;
+
+  stopTimer();
+  restoreGame(before);
+  Game.picked = null;      // في الاختيارات: يعيدون الاختيار (ضغطة طفل بالخطأ)
+  Game.deadline = 0;       // لا ساعة بعد التراجع — المقدّم يحكم على مهل
+  UI.hideRoundResult();
+  UI.hideUndo();
+  UI.renderRound();
+
+  if (Game.activeCell !== null) {
+    UI.openQuestion(Game.activeCell);
+    if (Game.answerShown) UI.showAnswer();
+    UI.updateTimer(null);
+  }
+  UI.applyRole();
+  saveLocalMatch();
+  Online.publish('playing');
+}
+
+/** هل ما زال هذا الفريق قادراً على الوصل لو أخذ كل ما بقي متاحاً؟ */
+function canStillConnect(team) {
+  const hypothetical = Game.owners.map(o => o === null ? team : o);
+  return !!Hive.findWinningPath(
+    Game.cells, hypothetical, team, Game.axis[team], Game.rows, Game.cols);
 }
 
 /**
@@ -492,20 +688,23 @@ function checkRoundEnd() {
     if (path) {
       Game.winner = team;
       Game.winPath = path;
+      Game.roundReason = 'path';
       return endRound();
     }
   }
 
-  // لا فائز بعد. هل بقيت خلايا يمكن اللعب عليها؟
+  /* لا فائز بعد. هل ما زال الوصل ممكناً لأحد؟
+     مع قاعدة «تُقفل الخلية» تنقطع الطرق من الطرفين قبل أن تمتلئ اللوحة
+     بكثير — في 90% من الجولات المحاكاة — وكانت اللعبة تواصل سبعة أسئلة
+     في المتوسط لا معنى لها. الآن تُحسم لحظة يستحيل الوصل على الفريقين.
+     (اللوحة بلا خلايا مقفلة تضمن وصل أحدهما دائماً — 200,000 لوحة.) */
   const playable = Game.owners.some(o => o === null);
-  if (!playable) {
-    // يحدث فقط مع قاعدة «تُقفل الخلية» حيث تختفي خلايا من الطرفين.
-    // اللوحة المعبّأة بالكامل بفريقين تضمن فائزاً واحداً دائماً
-    // (تم التحقق بمحاكاة 200,000 لوحة: صفر تعادل).
+  if (!playable || (!canStillConnect('A') && !canStillConnect('B'))) {
     const a = Hive.countCells(Game.owners, 'A');
     const b = Hive.countCells(Game.owners, 'B');
     Game.winner = a === b ? null : (a > b ? 'A' : 'B');
     Game.winPath = null;
+    Game.roundReason = a === b ? 'draw' : 'count';
     return endRound();
   }
 
@@ -523,6 +722,8 @@ function endRound() {
 
 function nextRound() {
   if (!Online.isJudge()) return;
+  lastVerdict = null;
+  UI.hideUndo();
   const needed = Math.floor(SETTINGS.rounds / 2) + 1;
 
   // نُنهي المباراة مبكراً لو حسم أحدهم أغلبية الجولات
@@ -535,6 +736,7 @@ function nextRound() {
 
 function endMatch() {
   Game.phase = 'match-over';
+  clearLocalMatch();
   UI.showMatchResult();
   Online.publish('ended');
 }
