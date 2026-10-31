@@ -883,3 +883,7 @@ body.is-guest .quit-btn { display: none; }
 @media (max-width: 860px) {
   .nav-sticky { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
 }
+
+/* الخطف في وضع الاختيارات: خارج صف الحكم فيأخذ العرض كاملاً، ومخفي عن غير المقدّم */
+.btn-steal-mc { width: 100%; margin-top: 10px; min-height: 48px; }
+.q-overlay.role-viewer #awardOtherMcBtn { display: none !important; }

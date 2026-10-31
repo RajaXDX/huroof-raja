@@ -333,8 +333,15 @@ const UI = (function () {
     // زر خطف النقطة يسمّي الفريق الآخر ويلبس لونه — «الآخر» وحدها تُربك
     // المقدّم وهو يحكم بسرعة بين فريقين
     const other = otherTeam(Game.turn);
-    $('awardOtherBtn').textContent = 'النقطة لـ«' + teamName(other) + '»';
-    $('awardOtherBtn').style.borderColor = teamColor(other);
+    ['awardOtherBtn', 'awardOtherMcBtn'].forEach(id => {
+      $(id).textContent = 'النقطة لـ«' + teamName(other) + '»';
+      $(id).style.borderColor = teamColor(other);
+    });
+    /* في وضع الاختيارات كان الخطف غائباً تماماً: الحكم آلي فلا صف أزرار
+       حكم. لكن الفريق الآخر قد يصيح بالإجابة أولاً حول جهاز واحد، فيحتاج
+       المقدّم أن يمنحه النقطة. للمقدّم وحده، وقبل أن يُضغط اختيار. */
+    $('awardOtherMcBtn').classList.toggle('hidden', !(choices && Online.isJudge()));
+    $('awardOtherMcBtn').disabled = false;
 
     $('questionModal').classList.add('show');
   }
@@ -358,6 +365,7 @@ const UI = (function () {
       btn.classList.toggle('is-wrong', i === Game.picked && !correct);
     });
     $('giveUpBtn').disabled = true;
+    $('awardOtherMcBtn').disabled = true;   // اختاروا — التسوية جارية
     $('qHint').textContent = correct ? '✔ إجابة صحيحة!'
       : gaveUp ? 'تخطّيتم — الإجابة: ' + q.a : '✖ إجابة خاطئة — الصحيحة: ' + q.a;
     $('qHint').classList.toggle('hint-right', correct);

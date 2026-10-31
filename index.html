@@ -470,6 +470,8 @@
 
     <!-- استسلام صريح في وضع الاختيارات بدل انتظار الوقت كاملاً -->
     <button class="btn btn-giveup hidden" id="giveUpBtn" onclick="chooseOption(-1)">لا نعرف — تخطَّ</button>
+    <!-- للمقدّم في وضع الاختيارات: الفريق الآخر سبق بالإجابة. نصّه ولونه من ui.js -->
+    <button class="btn btn-steal btn-steal-mc hidden" id="awardOtherMcBtn" onclick="awardOther()">النقطة للفريق الآخر</button>
 
     <div class="judge-row hidden" id="judgeRow">
       <!-- أخضر وأحمر ثابتان لا لون الفريق الأول: «صح» كان يلبس لون فريق بعينه -->

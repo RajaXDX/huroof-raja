@@ -583,6 +583,8 @@ function resolveAnswer(correct) {
 function awardOther() {
   if (Game.activeCell === null) return;
   if (!Online.isJudge()) return;
+  // في الاختيارات: إن ضُغط اختيار فالتسوية جارية — لا حكمان على سؤال واحد
+  if (Game.picked !== null) return;
 
   settleQuestion(otherTeam(Game.turn), true);
 }

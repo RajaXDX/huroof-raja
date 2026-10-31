@@ -362,6 +362,22 @@ const FRESH = "Game.phase='idle'; beginMatch();";
     await wait(1800);
     out.giveUp = Game.owners[4] === otherTeam(t);
 
+    // «النقطة للفريق الآخر» في الاختيارات: للمقدّم، قبل أي ضغطة
+    selectCell(6);
+    t = Game.turn;
+    out.stealVisible = !document.getElementById('awardOtherMcBtn').classList.contains('hidden') &&
+      document.getElementById('awardOtherMcBtn').textContent.includes(teamName(otherTeam(t)));
+    document.getElementById('awardOtherMcBtn').click();
+    out.steal = Game.owners[6] === otherTeam(t) && Game.activeCell === null && Game.turn === otherTeam(t);
+    // وبعد ضغط اختيار لا يُقبل خطف (التسوية جارية)
+    selectCell(7);
+    t = Game.turn; q = Game.questions[7];
+    chooseOption(q.options.indexOf(q.a));
+    awardOther();
+    out.stealBlocked = Game.activeCell === 7 && document.getElementById('awardOtherMcBtn').disabled;
+    await wait(1800);
+    out.stealBlockedResult = Game.owners[7] === t;
+
     // اختيار ضيف يصل في بثّة: المقدّم يسوّيه
     selectCell(2);
     t = Game.turn; q = Game.questions[2];
@@ -385,6 +401,8 @@ const FRESH = "Game.phase='idle'; beginMatch();";
   check('الاختيار الصحيح يعطي الخلية لصاحب الدور', mc.right);
   check('الخاطئ يعطيها للآخر، والضغطة الثانية لا تُحتسب', mc.wrong);
   check('«لا نعرف» يُحتسب خطأً ويعرض الإجابة', mc.giveUpVisible && mc.giveUpHint && mc.giveUp);
+  check('«النقطة للفريق الآخر» في الاختيارات تمنح الخلية للآخر', mc.stealVisible && mc.steal);
+  check('ولا خطف بعد ضغط اختيار', mc.stealBlocked && mc.stealBlockedResult);
   check('اختيار الضيف يسوّيه المقدّم', mc.guest);
   check('«اعرض الإجابة» معطّل في وضع الاختيارات', mc.noReveal);
 
