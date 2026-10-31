@@ -263,7 +263,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 
 .team-field { margin-bottom: 22px; }
 .team-field:last-child { margin-bottom: 0; }
-.team-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.team-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
 .name-input {
   display: flex; align-items: center;
   padding: 14px 16px; border-radius: 14px;
@@ -278,7 +278,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 
 .colors { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .color-dot {
-  width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+  width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
   border: 2px solid transparent; padding: 0;
   transition: transform .16s ease, border-color .16s ease;
 }
@@ -310,7 +310,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
   padding: 11px 16px; border-radius: 12px; cursor: pointer;
   background: var(--input-bg); color: var(--text); border: 1px solid var(--line);
   transition: filter .14s ease, background .14s ease, color .14s ease;
-  min-height: 40px;
+  min-height: 44px;
 }
 .choice:hover { filter: brightness(1.12); }
 .choice.selected { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -322,13 +322,13 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
   background: var(--panel-solid); border: 1px solid var(--line); cursor: pointer;
 }
 .switch {
-  width: 54px; height: 30px; border-radius: 999px; flex: 0 0 auto;
+  width: 60px; height: 34px; border-radius: 999px; flex: 0 0 auto;
   background: var(--input-bg); border: 1px solid var(--line);
   display: flex; align-items: center; justify-content: flex-end;
   padding: 3px; transition: background .18s ease;
 }
 .switch span {
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 26px; height: 26px; border-radius: 50%;
   background: var(--faint); transition: background .18s ease;
 }
 .switch.on { background: var(--accent); justify-content: flex-start; }
@@ -365,7 +365,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 
 .turn-bar {
   margin: 18px 0; padding: 14px 22px; border-radius: 14px; text-align: center;
-  font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 16px;
+  font-family: 'Cairo', sans-serif; font-weight: 800; font-size: clamp(16px, .7vw + .9vh, 30px);
   color: var(--on-accent);
   animation: glow 2.4s ease-in-out infinite;
 }
@@ -390,7 +390,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
    لا تستطيع ملأه لأن مقاسها محكوم بالعرض لا بالارتفاع. */
 .board-stage {
   flex: 1; display: grid; place-items: start center; padding: 24px 12px;
-  min-height: 0;
+  min-height: 0; position: relative;
 }
 
 /* الأشرطة إخوة للوحة لا عناصر مطلقة فوقها: تتمدّد معها تلقائياً
@@ -399,8 +399,13 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 .board-col { display: flex; flex-direction: column; gap: 12px; }
 .board { position: relative; }
 
-.edge-v { width: 10px; border-radius: 6px; flex: 0 0 auto; }
-.edge-h { height: 10px; border-radius: 6px; width: 100%; }
+.edge-v { width: 10px; border-radius: 6px; flex: 0 0 auto; background: var(--edge); }
+.edge-h { height: 10px; border-radius: 6px; width: 100%; background: var(--edge); }
+.edge-v.striped, .edge-h.striped {
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.38) 0 4px, transparent 4px 9px), var(--edge);
+}
+.edge-v.flash, .edge-h.flash { animation: edgeFlash .5s ease 4; }
+@keyframes edgeFlash { 50% { filter: brightness(1.8); box-shadow: 0 0 14px 3px var(--edge); } }
 
 .hex {
   position: absolute; display: grid; place-items: center; cursor: pointer;
@@ -410,7 +415,20 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
   transition: background .25s ease, color .25s ease, filter .14s ease;
 }
 .hex:hover { filter: brightness(1.08); }
-.hex.owned-a, .hex.owned-b { background: var(--hex-fill); color: var(--on-accent); }
+.hex { isolation: isolate; }
+.hex.owned-a, .hex.owned-b {
+  background: linear-gradient(rgba(0,0,0,.42), rgba(0,0,0,.42)), var(--hex-fill);
+  color: var(--on-accent);
+}
+.hex.owned-a::after, .hex.owned-b::after {
+  content: ''; position: absolute; inset: 5px; z-index: -1;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: var(--hex-fill);
+}
+.hex.owned-b::after {
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.26) 0 5px, transparent 5px 11px), var(--hex-fill);
+}
+.hex:focus-visible { outline: none; filter: brightness(1.15) drop-shadow(0 0 6px var(--accent)); }
 .hex.blocked { background: var(--lock); color: var(--lock-text); cursor: default; }
 .hex.blocked:hover, .hex.owned-a:hover, .hex.owned-b:hover { filter: none; }
 .hex.just-taken { animation: pop .4s ease; }
@@ -434,7 +452,7 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 .q-overlay.show { display: grid; }
 
 .q-box {
-  width: 100%; max-width: 520px; padding: 30px; border-radius: 24px;
+  width: 100%; max-width: clamp(520px, 58vw, 960px); padding: clamp(24px, 2.4vw, 44px); border-radius: 24px;
   background: linear-gradient(180deg, var(--s1), var(--s2));
   border: 1px solid var(--line-strong);
   box-shadow: 0 40px 80px -30px rgba(0,0,0,.9);
@@ -467,10 +485,10 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 .q-timer.urgent { border-color: var(--team2); color: var(--team2); }
 
 .q-text {
-  font-family: 'Cairo', sans-serif; font-weight: 700; font-size: 21px;
+  font-family: 'Cairo', sans-serif; font-weight: 700; font-size: clamp(21px, 1.2vw + 1.6vh, 46px);
   line-height: 1.6; color: var(--text); text-wrap: pretty; margin-top: 24px;
 }
-.q-hint { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.q-hint { font-size: clamp(13px, .6vw + .6vh, 22px); color: var(--muted); margin-top: 10px; }
 
 .q-answer {
   padding: 16px; border-radius: 14px; margin-top: 22px; text-align: center;
@@ -480,16 +498,39 @@ h1, h2, h3, .cairo { font-family: 'Cairo', system-ui, sans-serif; }
 
 .judge-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 26px; }
 
+/* وضع الاختيارات: أربعة أزرار في شبكة 2×2، وعمود واحد على الجوال الضيق.
+   ألوان الصح والخطأ ثابتة لا من ألوان الفرق — الأخضر يجب أن يعني «صح»
+   مهما كان لون الفريق الذي أجاب. */
+.choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+.btn-choice {
+  display: flex; align-items: center; gap: 10px; text-align: start;
+  background: var(--panel-solid); color: var(--text); border-color: var(--line-strong);
+  font-family: 'Cairo', sans-serif; font-weight: 800; font-size: clamp(18px, .9vw + 1vh, 34px);
+  padding: 14px 16px; border-radius: 14px; min-height: 58px;
+}
+.btn-choice:disabled { cursor: default; opacity: 1; }
+.btn-choice .choice-num {
+  flex: none; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px;
+  background: var(--input-bg); color: var(--muted);
+}
+.btn-choice.is-right { background: #1f9d55; border-color: #1f9d55; color: #fff; }
+.btn-choice.is-wrong { background: #d64545; border-color: #d64545; color: #fff; }
+.btn-choice.is-right .choice-num,
+.btn-choice.is-wrong .choice-num { background: rgba(255,255,255,.25); color: #fff; }
+.q-hint.hint-right { color: #1f9d55; font-weight: 800; font-size: 16px; }
+.q-hint.hint-wrong { color: #d64545; font-weight: 800; font-size: 16px; }
+
 /* زر كشف الإجابة يأخذ نفس مسافة أزرار الحكم. بلا هامش كان يلامس التلميح
    ويقصّ ذيول حروفه. */
 #revealBtn { margin-top: 26px; }
 .btn-correct {
-  background: var(--team1); color: var(--on-accent);
+  background: #1f9d55; color: #fff;
   font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 15px;
   padding: 15px; border-radius: 14px;
 }
 .btn-wrong {
-  background: var(--panel-solid); color: var(--text); border-color: var(--team2);
+  background: #d64545; color: #fff; border-color: #d64545;
   font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 15px;
   padding: 15px; border-radius: 14px;
 }
@@ -623,6 +664,7 @@ kbd {
   .home-stats { grid-template-columns: 1fr 1fr; }
   .home-stats .stat-card:last-child { grid-column: span 2; }
   .judge-row { grid-template-columns: 1fr; }
+  .choice-row { grid-template-columns: 1fr; }
 }
 
 /* ============================== الأونلاين ============================== */
@@ -747,4 +789,97 @@ body.is-viewer .hex:not(.owned-a):not(.owned-b):not(.blocked):hover { transform:
   .brand-tag { display: none; }
   .tab { padding: 8px 11px; font-size: 11.5px; }
   .room-bar { font-size: 12px; gap: 8px; }
+}
+
+/* ============================== النسخة 1.1 ============================== */
+
+/* الضيف لا يُنهي المباراة — المقدّم وحده (والحارس في `quitMatch`) */
+body.is-guest .quit-btn { display: none; }
+
+/* --- إعلان قصير فوق اللوحة: من أخذ الخلية، وتبدّل الاتجاهات --- */
+.game-banner {
+  position: absolute; top: -20px; left: 50%; z-index: 5;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transform: translate(-50%, -8px); opacity: 0; pointer-events: none;
+  padding: 8px 18px; border-radius: 999px; max-width: 94%;
+  background: var(--banner); color: var(--on-accent);
+  font-family: 'Cairo', sans-serif; font-weight: 900;
+  font-size: clamp(13px, .7vw + .9vh, 28px); text-align: center;
+  box-shadow: 0 12px 30px -10px rgba(0,0,0,.7);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.game-banner.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* --- التراجع: شريط أسفل الشاشة للمقدّم بعد كل حكم --- */
+.undo-bar {
+  position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom, 0px)); z-index: 60;
+  transform: translate(-50%, 140%); transition: transform .25s ease;
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 10px 8px 18px; border-radius: 999px;
+  background: var(--panel-solid); border: 1px solid var(--line-strong);
+  box-shadow: 0 16px 40px -14px rgba(0,0,0,.85);
+  font-size: 14px; color: var(--muted);
+}
+.undo-bar.show { transform: translate(-50%, 0); }
+.undo-bar .btn { min-height: 44px; }
+
+/* لقارئ الشاشة وحده */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* --- نافذة السؤال --- */
+.q-actions { display: flex; gap: 8px; margin-top: 8px; }
+.q-actions .btn-text { min-height: 44px; }
+.btn-giveup {
+  width: 100%; margin-top: 12px; min-height: 48px;
+  background: transparent; color: var(--muted);
+  border: 1px dashed var(--line-strong); border-radius: 14px;
+  font-family: 'Cairo', sans-serif; font-weight: 700; font-size: 15px;
+}
+
+/* --- نتيجة الجولة: ترسو أسفل الشاشة فيبقى مسار الفوز ظاهراً --- */
+.round-reason { font-size: 14px; color: var(--muted); margin: -2px 0 12px; }
+.round-next-sides {
+  font-size: 13.5px; font-weight: 800; color: var(--accent);
+  margin: -10px 0 18px;
+}
+#roundOverlay.docked {
+  place-items: end center; background: transparent;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+#roundOverlay.docked .q-box {
+  pointer-events: auto; max-width: 480px;
+  margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+#roundOverlay.docked .q-box { padding: 16px 20px; }
+#roundOverlay.docked .round-icon { display: none; }
+#roundOverlay.docked .round-title { font-size: clamp(19px, .8vw + 1vh, 30px); margin-bottom: 4px; }
+#roundOverlay.docked .round-score { margin-bottom: 10px; font-size: 13.5px; }
+#roundOverlay.docked .round-reason { margin: 0 0 8px; font-size: 13px; }
+#roundOverlay.docked .round-next-sides { margin: -4px 0 10px; font-size: 12.5px; }
+#roundOverlay.docked .btn-big { padding: 13px; font-size: 16px; border-radius: 14px; }
+.round-undo { margin-top: 4px; min-height: 40px; }
+
+/* --- الإعدادات: مستوى كل فريق --- */
+.level-label { font-size: 12.5px; color: var(--muted); margin: 14px 0 6px; }
+.choices-sm .choice { padding: 9px 14px; font-size: 12.5px; }
+.level-note { font-size: 12px; color: var(--faint); margin: 4px 0 0; }
+
+/* زر البدء ثابت أسفل شاشة الإعدادات */
+.nav-sticky {
+  position: sticky; bottom: 0; z-index: 4;
+  margin: 22px -22px 0; padding: 14px 22px max(14px, env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent 0, var(--bg2) 16px);
+}
+
+/* --- الردهة: طريقة الإجابة يختارها المقدّم --- */
+.lobby-mode { margin-bottom: 14px; }
+.lobby-mode .choices { justify-content: center; }
+.lobby-mode .team-label { text-align: center; }
+
+@media (max-width: 860px) {
+  .nav-sticky { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
 }

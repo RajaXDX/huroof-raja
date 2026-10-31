@@ -5,7 +5,7 @@
   <!-- viewport-fit=cover: تمتد الصفحة تحت النوتش، والحواف الآمنة تُعالَج في CSS -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>صراع الحروف</title>
-  <meta name="description" content="لعبة خلية الحروف — فريقان يتنافسان على وصل الحروف من طرف إلى طرف. 280 سؤالاً عربياً وسعودياً للعائلة والأصدقاء.">
+  <meta name="description" content="لعبة خلية الحروف — فريقان يتنافسان على وصل الحروف من طرف إلى طرف. 840 سؤالاً عربياً للعائلة والأصدقاء، بثلاثة مستويات.">
   <meta name="theme-color" content="#141926">
 
   <meta property="og:title" content="صراع الحروف">
@@ -22,8 +22,8 @@
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- الخطوط محزومة محلياً لا من Google — اللعبة يجب أن تعمل بلا إنترنت -->
-  <link rel="stylesheet" href="css/fonts.css?v=13">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/fonts.css?v=16">
+  <link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 
@@ -69,6 +69,14 @@
       <button class="btn btn-ghost btn-big" onclick="goHowTo()">كيف نلعب؟</button>
     </div>
 
+    <div class="resume-box hidden" id="localResumeBox">
+      <span>مباراة لم تكتمل · <b id="localResumeText"></b></span>
+      <span class="resume-actions">
+        <button class="btn btn-primary btn-tiny" onclick="resumeLocalMatch()">أكملوها</button>
+        <button class="btn btn-ghost btn-tiny" onclick="dropLocalMatch()">احذفها</button>
+      </span>
+    </div>
+
     <div class="resume-box hidden" id="resumeBox">
       <span>عندك روم مفتوحة <b id="resumeCode"></b></span>
       <span class="resume-actions">
@@ -106,7 +114,7 @@
 <div class="screen" id="screen-howto">
   <div class="wrap">
     <h2 class="page-title">كيف نلعب</h2>
-    <p class="page-sub">ست قواعد تكفي لتبدأ</p>
+    <p class="page-sub">سبع قواعد تكفي لتبدأ</p>
 
     <div class="rules">
       <div class="rule">
@@ -130,7 +138,10 @@
         <div>
           <b>السؤال</b>
           <p>صاحب الدور يختار أي مسدس فارغ، فيظهر سؤال إجابته تبدأ بذلك الحرف.
-             يجيبون بصوت عالٍ، ثم يُضغط «اعرض الإجابة» ويُحكم: صح أم خطأ.</p>
+             في وضع <b>الاختيارات</b> تظهر أربع إجابات يضغط الفريق واحدة منها
+             وتُصحَّح تلقائياً، ومن لا يعرف يضغط «لا نعرف». وفي وضع <b>المقدّم
+             يحكم</b> يجيبون بصوت عالٍ، ثم يُضغط «اعرض الإجابة» ويُحكم: صح أم خطأ.
+             والسؤال الغامض يُبدَّل بـ«سؤال آخر».</p>
         </div>
       </div>
       <div class="rule">
@@ -138,7 +149,8 @@
         <div>
           <b>نتيجة الإجابة</b>
           <p>الصحيحة تجعل المسدس ملكاً للفريق. والخاطئة حسب إعدادك:
-             تذهب للفريق الآخر، أو تُقفل للطرفين، أو تبقى متاحة.</p>
+             تذهب للفريق الآخر، أو تُقفل للطرفين، أو تبقى متاحة. وحكم بالخطأ
+             يُصحَّح بـ«تراجع» بعده مباشرة.</p>
         </div>
       </div>
       <div class="rule">
@@ -146,15 +158,27 @@
         <div>
           <b>تبديل الاتجاهات</b>
           <p>اللوحة المربعة تعطي الاتجاه العمودي أفضلية نحو ٣٪ لأن المسدسات
-             تتداخل رأسياً. لذلك يتبادل الفريقان الاتجاهين كل جولة فتتعادل
-             الفرصة. يمكن إيقافه من الإعدادات.</p>
+             تتداخل رأسياً. لذلك يتبادل الفريقان الاتجاهين كل جولة، والجولة
+             الحاسمة تُحسم اتجاهاتها بقرعة. يمكن إيقافه من الإعدادات.</p>
         </div>
       </div>
       <div class="rule">
         <span class="rule-num">٦</span>
         <div>
+          <b>لكل فريق مستواه</b>
+          <p>من الإعدادات يختار كل فريق مستوى أسئلته: سهل أو متوسط أو صعب أو
+             مختلط. فيلعب الأطفال «سهل» والكبار «صعب» في المباراة نفسها، وكل فريق
+             يُسأل بمستواه حين يكون الدور له.</p>
+        </div>
+      </div>
+      <div class="rule">
+        <span class="rule-num">٧</span>
+        <div>
           <b>اختصارات المقدّم</b>
-          <p><kbd>مسافة</kbd> تعرض الإجابة · <kbd>1</kbd> صح · <kbd>2</kbd> خطأ</p>
+          <p><kbd>مسافة</kbd> تعرض الإجابة، وبعدها: <kbd>1</kbd> صح · <kbd>2</kbd> خطأ ·
+             <kbd>3</kbd> النقطة للفريق الآخر. وفي وضع الاختيارات:
+             <kbd>1</kbd>–<kbd>4</kbd> تختار الإجابة و<kbd>0</kbd> «لا نعرف».
+             و<kbd>Ctrl</kbd>+<kbd>Z</kbd> يتراجع عن آخر حكم.</p>
         </div>
       </div>
     </div>
@@ -232,6 +256,10 @@
     </div>
 
     <div id="lobbyHostBox" class="hidden">
+      <div class="lobby-mode">
+        <div class="team-label">طريقة الإجابة</div>
+        <div class="choices" id="lobbyModeChoices"></div>
+      </div>
       <button class="btn btn-primary btn-big" id="lobbyStartBtn"
               onclick="lobbyStart()">ابدأ المباراة</button>
       <p class="lobby-hint" id="lobbyHint"></p>
@@ -271,6 +299,8 @@
             <input type="text" id="inputNameA" maxlength="18" onchange="commitNames()">
           </div>
           <div class="colors" id="colorsA"></div>
+          <div class="level-label">مستوى أسئلته</div>
+          <div class="choices choices-sm" id="levelChoicesA"></div>
         </div>
 
         <div class="team-field">
@@ -280,7 +310,10 @@
             <input type="text" id="inputNameB" maxlength="18" onchange="commitNames()">
           </div>
           <div class="colors" id="colorsB"></div>
+          <div class="level-label">مستوى أسئلته</div>
+          <div class="choices choices-sm" id="levelChoicesB"></div>
         </div>
+        <p class="level-note">لكل فريق مستواه: الأطفال «سهل» والكبار «صعب» في نفس المباراة.</p>
       </div>
 
       <div class="card">
@@ -309,6 +342,12 @@
     </div>
 
     <div class="opt-row">
+      <div class="opt-head">طريقة الإجابة</div>
+      <div class="opt-desc">«المقدّم يحكم»: يجيبون بصوت عالٍ ويحكم المقدّم · «اختيارات»: أربع إجابات تُصحَّح تلقائياً، أسهل وتنهي الجدال</div>
+      <div class="choices" id="answerModeChoices"></div>
+    </div>
+
+    <div class="opt-row">
       <div class="opt-head">عند الإجابة الخاطئة</div>
       <div class="opt-desc">مصير الخلية بعد الخطأ</div>
       <div class="choices" id="wrongChoices"></div>
@@ -330,7 +369,8 @@
       <div class="switch" id="soundToggle"><span></span></div>
     </div>
 
-    <div class="nav">
+    <!-- شريط ثابت أسفل الشاشة: كان زر البدء في قاع صفحة طولها 3.4 شاشة جوال -->
+    <div class="nav nav-sticky">
       <button class="btn btn-ghost" onclick="goHome()">رجوع</button>
       <button class="btn btn-primary" onclick="beginMatch()">ابدأ المباراة</button>
     </div>
@@ -353,7 +393,7 @@
 
       <div class="round-box">
         <div class="round-label" id="roundLabel">الجولة ١</div>
-        <button class="btn btn-ghost btn-tiny" onclick="quitMatch()">إنهاء</button>
+        <button class="btn btn-ghost btn-tiny quit-btn" onclick="quitMatch()">إنهاء</button>
       </div>
 
       <div class="team-card team-card-b" id="teamCardB">
@@ -366,9 +406,11 @@
       </div>
     </div>
 
-    <div class="turn-bar" id="turnBar">دور الفريق الأول — اختر خلية</div>
+    <div class="turn-bar" id="turnBar" aria-live="polite">دور الفريق الأول — اختر خلية</div>
 
     <div class="board-stage" id="boardStage">
+      <!-- إعلان قصير فوق اللوحة: من أخذ الخلية، وتبدّل الاتجاهات -->
+      <div class="game-banner" id="gameBanner" aria-hidden="true"></div>
       <div class="board-frame">
         <div class="edge-v" id="edgeStart"></div>
         <div class="board-col" id="boardCol">
@@ -396,7 +438,7 @@
     <h2 class="end-title" id="endTitle">الفائز</h2>
     <div class="end-score" id="endScore"></div>
     <div class="nav">
-      <button class="btn btn-primary" onclick="beginMatch()">مباراة جديدة</button>
+      <button class="btn btn-primary" onclick="newMatch()">مباراة جديدة</button>
       <button class="btn btn-ghost" onclick="goSetup()">الإعدادات</button>
       <button class="btn btn-ghost" onclick="goHome()">الرئيسية</button>
     </div>
@@ -421,18 +463,39 @@
 
     <div class="q-answer hidden" id="qAnswer"></div>
 
+    <!-- وضع الاختيارات: تُبنى أزراره في ui.js من `options` السؤال -->
+    <div class="choice-row hidden" id="choiceRow"></div>
+
     <button class="btn btn-primary btn-big" id="revealBtn" onclick="revealAnswer()">اعرض الإجابة</button>
 
+    <!-- استسلام صريح في وضع الاختيارات بدل انتظار الوقت كاملاً -->
+    <button class="btn btn-giveup hidden" id="giveUpBtn" onclick="chooseOption(-1)">لا نعرف — تخطَّ</button>
+
     <div class="judge-row hidden" id="judgeRow">
-      <button class="btn btn-correct" onclick="resolveAnswer(true)">إجابة صحيحة</button>
-      <button class="btn btn-wrong" onclick="resolveAnswer(false)">إجابة خاطئة</button>
+      <!-- أخضر وأحمر ثابتان لا لون الفريق الأول: «صح» كان يلبس لون فريق بعينه -->
+      <button class="btn btn-correct" onclick="resolveAnswer(true)">✔ إجابة صحيحة</button>
+      <button class="btn btn-wrong" onclick="resolveAnswer(false)">✖ إجابة خاطئة</button>
       <!-- نصّه يُكتب في ui.js باسم الفريق الآخر، فالمقدّم يرى لمن تذهب -->
       <button class="btn btn-steal" id="awardOtherBtn" onclick="awardOther()">النقطة للفريق الآخر</button>
     </div>
 
-    <button class="btn-text" onclick="cancelQuestion()">إلغاء — أعد الخلية</button>
+    <!-- «إلغاء — أعد الخلية» كان يبدّل السؤال ولا يقول ذلك. الآن فعلان صريحان -->
+    <div class="q-actions">
+      <button class="btn-text" onclick="replaceQuestion()">↻ سؤال آخر</button>
+      <button class="btn-text" onclick="cancelQuestion()">أغلق بلا حكم</button>
+    </div>
   </div>
 </div>
+
+
+<!-- ============================ التراجع ============================ -->
+<div class="undo-bar" id="undoBar" role="status">
+  <span>سُجّل الحكم</span>
+  <button class="btn btn-ghost btn-tiny" onclick="undoVerdict()">↶ تراجع</button>
+</div>
+
+<!-- يقرؤه قارئ الشاشة: الأحكام وإعلانات الجولة -->
+<div class="sr-only" id="liveRegion" aria-live="polite"></div>
 
 
 <!-- ============================ نتيجة الجولة ============================ -->
@@ -440,25 +503,28 @@
   <div class="q-box round-modal">
     <div class="round-icon" id="roundIcon">🎉</div>
     <h3 class="round-title" id="roundTitle"></h3>
+    <p class="round-reason hidden" id="roundReason"></p>
     <div class="round-score" id="roundScore"></div>
+    <p class="round-next-sides hidden" id="roundNextSides"></p>
     <button class="btn btn-primary btn-big" id="roundNextBtn"
             onclick="document.getElementById('roundOverlay').classList.remove('show'); nextRound();">
       الجولة التالية
     </button>
     <p class="lobby-waiting hidden" id="roundWait">بانتظار المقدّم…</p>
+    <button class="btn-text round-undo hidden" id="roundUndoBtn" onclick="undoVerdict()">↶ تراجع عن آخر حكم</button>
   </div>
 </div>
 
 
-<script src="js/themes.js?v=13"></script>
-<script src="js/utils.js?v=13"></script>
-<script src="js/hive.js?v=13"></script>
-<script src="js/game.js?v=13"></script>
-<script src="js/ui.js?v=13"></script>
+<script src="js/themes.js?v=16"></script>
+<script src="js/utils.js?v=16"></script>
+<script src="js/hive.js?v=16"></script>
+<script src="js/game.js?v=16"></script>
+<script src="js/ui.js?v=16"></script>
 <!-- net قبل online: الأخير يسجّل مستمعيه على الأول لحظة التحميل -->
-<script src="js/net.js?v=13"></script>
-<script src="js/online.js?v=13"></script>
-<script src="js/setup.js?v=13"></script>
+<script src="js/net.js?v=16"></script>
+<script src="js/online.js?v=16"></script>
+<script src="js/setup.js?v=16"></script>
 
 <script>
 /* تسجيل عامل الخدمة — يخزّن اللعبة على الجهاز فتعمل بلا إنترنت.
