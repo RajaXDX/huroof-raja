@@ -112,7 +112,8 @@
 `https://rajaxdx.github.io/huroof-raja/privacy.html`
 
 **رابط الدعم** (إلزامي — ولا يصلح تركه فارغاً):
-`https://github.com/RajaXDX/huroof-raja`
+`https://rajaxdx.github.io/huroof-raja/support.html` — صفحة عربية فيها
+زر واتساب وأسئلة شائعة (2026-11-07؛ كان قبلها رابط المستودع على GitHub).
 
 ---
 
