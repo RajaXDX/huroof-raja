@@ -98,7 +98,17 @@ const UI = (function () {
 
       hex.addEventListener('click', () => selectCell(c.index));
       hex.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectCell(c.index); }
+        /* والسؤال مفتوح يبقى التركيز على الخلية خلف النافذة، فالمفتاح هنا
+           للنافذة لا للخلية: نتركه يصعد للمستمع العام («مسافة» = اعرض الإجابة).
+           كان يُبتلع ويعيد فتح الخلية، فلا تُكشف الإجابة ولا يُحكم أبداً. */
+        if (isQuestionOpen()) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          /* ⚠️ لا يصعد المفتاح للمستمع العام: النافذة تكون قد فُتحت لحظة
+             وصوله، و«مسافة/Enter» هناك تعني «اعرض الإجابة» — ففتح الخلية
+             من لوحة المفاتيح كان يكشف إجابتها فوراً. */
+          e.preventDefault(); e.stopPropagation();
+          selectCell(c.index);
+        }
       });
       board.appendChild(hex);
       paintCell(c.index);
@@ -288,6 +298,15 @@ const UI = (function () {
     document.querySelectorAll('.hex.win-cell').forEach(h => h.classList.remove('win-cell'));
   }
 
+  /* يُخفي ما يطفو فوق اللوحة عند مغادرتها، بلا مساس بحالة اللعبة.
+     إعلان الجولة نافذة ثابتة الموضع، فكان يبقى راسياً فوق الرئيسية وزرّه
+     «الجولة التالية» يقفز باللاعب إلى لوحة لم يطلبها. `goBoard` يعيده. */
+  function suspendOverlays() {
+    clearTimeout(roundTimer);
+    $('roundOverlay').classList.remove('show');
+    hideUndo();
+  }
+
   function isQuestionOpen() { return $('questionModal').classList.contains('show'); }
   function isScreen(id) { const s = $(id); return !!s && s.classList.contains('active'); }
 
@@ -342,9 +361,12 @@ const UI = (function () {
        المقدّم أن يمنحه النقطة. للمقدّم وحده، وقبل أن يُضغط اختيار. */
     $('awardOtherMcBtn').classList.toggle('hidden', !(choices && Online.isJudge()));
     $('awardOtherMcBtn').disabled = false;
+    qActions().forEach(b => { b.disabled = false; });
 
     $('questionModal').classList.add('show');
   }
+
+  function qActions() { return document.querySelectorAll('#questionModal .q-actions .btn-text'); }
 
   function showAnswer() {
     $('qAnswer').classList.remove('hidden');
@@ -366,6 +388,8 @@ const UI = (function () {
     });
     $('giveUpBtn').disabled = true;
     $('awardOtherMcBtn').disabled = true;   // اختاروا — التسوية جارية
+    // و«سؤال آخر» و«أغلق بلا حكم» كذلك — الحارس في game.js، وهذا يقوله للعين
+    qActions().forEach(b => { b.disabled = true; });
     $('qHint').textContent = correct ? '✔ إجابة صحيحة!'
       : gaveUp ? 'تخطّيتم — الإجابة: ' + q.a : '✖ إجابة خاطئة — الصحيحة: ' + q.a;
     $('qHint').classList.toggle('hint-right', correct);
@@ -541,8 +565,9 @@ const UI = (function () {
 
         // المضيف وحده ينقل اللاعبين — والزر لا يظهر لغيره أصلاً
         if (host) {
+          // ⚠️ `el` يكتب innerHTML، واسم الفريق نصّ يكتبه لاعب
           const move = el('button', { class: 'btn btn-ghost btn-tiny' },
-            t === 'A' ? '→ ' + teamName('B') : '← ' + teamName('A'));
+            escapeHtml(t === 'A' ? '→ ' + teamName('B') : '← ' + teamName('A')));
           move.onclick = () => movePlayer(p.seat, t === 'A' ? 'B' : 'A');
           row.appendChild(move);
         }
@@ -571,7 +596,8 @@ const UI = (function () {
     [['choices', 'اختيارات — بلا مكالمة'], ['host', 'المقدّم يحكم — على مكالمة']].forEach(([v, label]) => {
       const b = el('button', { class: 'choice' + (SETTINGS.answerMode === v ? ' selected' : ''), type: 'button' },
         escapeHtml(label));
-      b.onclick = () => { SETTINGS.answerMode = v; Sound.select(); renderLobbyMode(); };
+      // saveSettings أونلاين لا يحفظ إلا الشخصي، ويبثّ للضيوف وهم في الردهة
+      b.onclick = () => { SETTINGS.answerMode = v; Sound.select(); saveSettings(); renderLobbyMode(); };
       wrap.appendChild(b);
     });
   }
@@ -591,7 +617,7 @@ const UI = (function () {
   return {
     renderBoard, renderStatus, renderRound, paintCell, highlightPath,
     openQuestion, showAnswer, showPick, closeQuestion, updateTimer,
-    showRoundResult, hideRoundResult, showMatchResult,
+    showRoundResult, hideRoundResult, suspendOverlays, showMatchResult,
     applyRole, renderLobby, renderRoomBar,
     flashVerdict, offerUndo, hideUndo, banner,
     isQuestionOpen, isScreen,

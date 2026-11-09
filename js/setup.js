@@ -2,6 +2,17 @@
    setup.js — شاشة الإعدادات والتنقّل والإقلاع
    ========================================================================== */
 
+/* -------------------------------------------- قفل الإعدادات عن الضيف */
+
+/* أونلاين، إعدادات المباراة بيد المقدّم. الضيف يصل لشاشة الإعدادات من
+   التبويب، وكان يغيّر فيها المؤقّت والأسماء والحجم كأنها له — فتُطبَّق على
+   جهازه وحده (ويُحسب منها وقت السؤال الذي يفتحه). الثيم والصوت يبقيان له. */
+function matchSettingsLocked() {
+  if (!(Online.active() && !Online.isJudge())) return false;
+  uiToast('إعدادات المباراة بيد المقدّم — لك الثيم والصوت فقط');
+  return true;
+}
+
 /* ------------------------------------------------------- بطاقات الثيم */
 
 function renderThemeGrid() {
@@ -29,8 +40,11 @@ function renderThemeGrid() {
       SETTINGS.palette = key;
       // تبديل الثيم يصفّر ألوان الفريقين إلى افتراضياته — وإلا بقي لون
       // مختار من ثيم سابق لا ينسجم مع اللوحة الجديدة.
-      SETTINGS.teamA.color = null;
-      SETTINGS.teamB.color = null;
+      // ⚠️ إلا عند الضيف أونلاين: ألوان الفريقين من المضيف لا منه
+      if (!(Online.active() && !Online.isJudge())) {
+        SETTINGS.teamA.color = null;
+        SETTINGS.teamB.color = null;
+      }
       applyTheme(key);
       Sound.select();
       saveSettings();
@@ -61,6 +75,7 @@ function renderColorPickers() {
       });
 
       dot.onclick = () => {
+        if (matchSettingsLocked()) return;
         // لونان متطابقان يجعلان اللوحة غير مقروءة. نمنعه هنا بدل أن
         // يكتشف اللاعبون المشكلة في منتصف الجولة.
         if (value === other) {
@@ -96,6 +111,7 @@ function renderChoiceGroup(containerId, options, currentValue, onPick) {
     }, escapeHtml(opt.label));
 
     btn.onclick = () => {
+      if (matchSettingsLocked()) return;
       Sound.select();
       onPick(opt.value);
       saveSettings();
@@ -108,6 +124,9 @@ function renderChoiceGroup(containerId, options, currentValue, onPick) {
 function renderSetup() {
   $('inputNameA').value = SETTINGS.teamA.name;
   $('inputNameB').value = SETTINGS.teamB.name;
+  const locked = Online.active() && !Online.isJudge();
+  $('inputNameA').disabled = locked;
+  $('inputNameB').disabled = locked;
 
   renderThemeGrid();
   renderColorPickers();
@@ -194,6 +213,7 @@ function updateSetupPreview() {
 /* ------------------------------------------------------------ التبديلات */
 
 function toggleSwapSides() {
+  if (matchSettingsLocked()) return;
   SETTINGS.swapSides = !SETTINGS.swapSides;
   Sound.select();
   saveSettings();
@@ -210,17 +230,25 @@ function toggleSound() {
 
 /* ------------------------------------------------------------- التنقّل */
 
-/* شريط التراجع يخصّ اللوحة: ظهر فوق الرئيسية بعد مغادرتها، والضغط عليه
-   هناك يقفز باللاعب إلى لوحة لم يطلبها. كل خروج من اللوحة يُخفيه. */
-function goHome()  { Sound.click(); UI.hideUndo(); showScreen('screen-home'); syncTabs(); refreshResumeBox(); refreshLocalResume(); }
-function goHowTo() { Sound.click(); UI.hideUndo(); showScreen('screen-howto'); syncTabs(); }
+/* شريط التراجع وإعلان الجولة يخصّان اللوحة: ظهرا فوق الرئيسية بعد
+   مغادرتها، والضغط عليهما هناك يقفز باللاعب إلى لوحة لم يطلبها. كل خروج
+   من اللوحة يُخفيهما، و`goBoard` يعيد إعلان الجولة. */
+function goHome()  { Sound.click(); UI.suspendOverlays(); showScreen('screen-home'); syncTabs(); refreshResumeBox(); refreshLocalResume(); }
+function goHowTo() { Sound.click(); UI.suspendOverlays(); showScreen('screen-howto'); syncTabs(); }
 
 function goSetup() {
   Sound.click();
-  UI.hideUndo();
+  UI.suspendOverlays();
   showScreen('screen-setup');
   renderSetup();
   syncTabs();
+}
+
+/* «رجوع» من الإعدادات. أونلاين يرجع للروم: المضيف يفتح الإعدادات من
+   الردهة، وكان «رجوع» يرميه في الرئيسية ولا طريق منها للردهة. */
+function setupBack() {
+  if (Online.active()) { goOnline(); return; }
+  goHome();
 }
 
 /** تبويب «اللوحة» يعمل فقط أثناء مباراة قائمة — وإلا فلا لوحة يُرجع إليها */
@@ -233,7 +261,10 @@ function goBoard() {
   showScreen('screen-game');
   UI.renderBoard();
   UI.renderStatus();
+  UI.applyRole();
   syncTabs();
+  // الجولة انتهت ولم تبدأ التالية: إعلانها (وزرّ التقدّم فيه) يعود مع اللوحة
+  if (Game.phase === 'round-over') UI.showRoundResult();
 }
 
 /** يبرز التبويب المطابق للشاشة الظاهرة */
@@ -253,16 +284,26 @@ function commitNames() {
   saveSettings();
 }
 
+/** هل توجد مباراة جارية (لم تنتهِ ولم تُنهَ)؟ */
+function matchRunning() {
+  return Game.phase === 'playing' || Game.phase === 'round-over';
+}
+
 /** هل توجد مباراة محلية جارية يمسحها البدء من جديد؟ */
 function matchInProgress() {
-  return !Online.active() && (Game.phase === 'playing' || Game.phase === 'round-over');
+  return !Online.active() && matchRunning();
 }
 
 async function beginMatch() {
+  // قبل commitNames: الضيف كان يكتب الحقلين في SETTINGS ثم يُرفض البدء
+  if (!Online.isJudge()) { uiToast('المضيف هو من يبدأ المباراة'); return; }
   /* الإعدادات متاحة في منتصف المباراة، و«ابدأ المباراة» كان يمسحها بلا
-     سؤال — ضغطة لتغيير اللون تُضيع جولتين. */
-  if (matchInProgress() && !(await uiConfirm('عندكم مباراة جارية. تبدؤون مباراة جديدة وتُمسح؟'))) return;
-  commitNames();
+     سؤال — ضغطة لتغيير اللون تُضيع جولتين. وأونلاين أيضاً: المضيف كان
+     يمسح المباراة على الجميع بضغطة من شاشة الإعدادات. */
+  if (matchRunning() && Online.isJudge() &&
+      !(await uiConfirm('عندكم مباراة جارية. تبدؤون مباراة جديدة وتُمسح؟'))) return;
+  // الحقلان لا يعكسان SETTINGS إلا في شاشة الإعدادات (رُسما عند آخر فتح لها)
+  if (UI.isScreen('screen-setup')) commitNames();
   startMatch();
 }
 
@@ -271,6 +312,7 @@ function newMatch() {
   if (Online.active()) {
     if (!Online.isJudge()) return;
     // الرجوع للردهة يسمح بنقل اللاعبين بين الفريقين ودخول المتأخرين
+    forgetVerdict();
     Game.phase = 'idle';
     Online.publish('waiting');
     showScreen('screen-room');
@@ -285,11 +327,15 @@ async function quitMatch() {
   // ⚠️ الإنهاء للمقدّم وحده أونلاين — كان أي ضيف ينهي المباراة على الجميع.
   // والزر نفسه مخفي عن الضيف (`is-guest`)؛ هذا الحارس لمن يتجاوز الواجهة.
   if (Online.active() && !Online.isJudge()) { uiToast(Online.msg('not_host')); return; }
-  if (Game.phase === 'playing' && !(await uiConfirm('تنهي المباراة وترجع للإعدادات؟'))) return;
+  /* بين الجولتين أيضاً: كانت ضغطة «إنهاء» والإعلان ظاهر تمسح مباراة من
+     خمس جولات بلا سؤال. */
+  const ask = Online.active() ? 'تنهي المباراة على الجميع وترجعون للردهة؟'
+                              : 'تنهي المباراة وترجع للإعدادات؟';
+  if (matchRunning() && !(await uiConfirm(ask))) return;
   stopTimer();
   Game.phase = 'idle';
+  forgetVerdict();
   UI.hideRoundResult();
-  UI.hideUndo();
   UI.closeQuestion();
 
   // أونلاين: العودة للردهة لا للإعدادات — الروم قائمة والباقون فيها
@@ -307,7 +353,8 @@ async function quitMatch() {
 /* ------------------------------------------------ استئناف مباراة محلية */
 
 function refreshLocalResume() {
-  const m = savedLocalMatch();
+  // داخل روم لا تُعرض: استئنافها كان يصبّ مباراة محلية في الروم وتُبثّ للجميع
+  const m = Online.active() ? null : savedLocalMatch();
   const box = $('localResumeBox');
   if (!box) return;
   box.classList.toggle('hidden', !m);
@@ -322,7 +369,7 @@ function refreshLocalResume() {
 
 function resumeLocalMatch() {
   const m = savedLocalMatch();
-  if (!m) return;
+  if (!m || Online.active()) return;
   // إعدادات المباراة نفسها (الأسماء والحجم والقواعد) — لا ما تغيّر بعدها.
   // الثيم والصوت شأن الجهاز لا المباراة، فيبقيان كما هما الآن.
   const s = Object.assign({}, m.settings || {});

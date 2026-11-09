@@ -30,7 +30,11 @@ const DEFAULT_SETTINGS = {
   sound: true,
 };
 
-let SETTINGS = Object.assign({}, DEFAULT_SETTINGS, loadJSON('huroof_settings', {}));
+/* نسخة عميقة لا `Object.assign({}, DEFAULT_SETTINGS)`: الأخيرة تنسخ كائنَي
+   الفريقين بالمرجع، فتغيير لون الفريق كان يعدّل الافتراضي نفسه. */
+function freshDefaults() { return JSON.parse(JSON.stringify(DEFAULT_SETTINGS)); }
+
+let SETTINGS = Object.assign(freshDefaults(), loadJSON('huroof_settings', {}));
 
 // الثيم قد يكون محذوفاً بعد تحديث — نرجع للافتراضي بدل شاشة بلا ألوان
 if (!THEMES[SETTINGS.palette]) SETTINGS.palette = DEFAULT_SETTINGS.palette;
@@ -51,6 +55,19 @@ if (!THEMES[SETTINGS.palette]) SETTINGS.palette = DEFAULT_SETTINGS.palette;
 })();
 
 function saveSettings() {
+  /* ⚠️ أونلاين: SETTINGS تحمل إعدادات المضيف (وعند المضيف نفسه «اختيارات»
+     مفروضة في الذاكرة). حفظها كلها كان يكتبها فوق إعدادات اللاعب المحلية
+     فتبقى بعد خروجه من الروم. أونلاين نحفظ ما هو شأن الجهاز وحده. */
+  if (Online.active()) {
+    const mine = loadJSON('huroof_settings', {});
+    mine.palette = SETTINGS.palette;
+    mine.sound = SETTINGS.sound;
+    saveJSON('huroof_settings', mine);
+    // المضيف في الردهة: يرى الضيوف أسماء الفريقين وطريقة الإجابة فوراً
+    // لا عند بدء المباراة — كان كل جهاز يعرض أسماءه المحلية
+    if (Online.isJudge() && Game.phase === 'idle') Online.publish('waiting');
+    return;
+  }
   saveJSON('huroof_settings', SETTINGS);
 }
 
@@ -404,6 +421,9 @@ function selectCell(index) {
  */
 function startTimer() {
   stopTimer();
+  // ⚠️ بلا التصفير: سؤال يُفتح والعدّاد يساوي آخر قيمة عُرضت (30 إن كُشفت
+  // الإجابة في أول ثانية) فلا يُرسم، ويبقى المؤقّت مخفياً ثانية كاملة
+  Game.timeLeft = -1;
   if (!SETTINGS.timer || !Game.deadline) { UI.updateTimer(null); return; }
 
   tickTimer();
@@ -441,7 +461,7 @@ function stopTimer() {
  * تتناقش هل «الهادئ» تُقبل عن «المحيط الهادئ».
  */
 function revealAnswer() {
-  if (!Online.isJudge()) return;
+  if (Game.activeCell === null || !Online.isJudge()) return;
   if (SETTINGS.answerMode === 'choices') return;   // الاختيارات تكشف نفسها
   stopTimer();
   Game.deadline = 0;
@@ -481,6 +501,9 @@ function replaceQuestion() {
 function cancelQuestion() {
   if (Game.activeCell === null) return;
   if (!Online.isJudge()) return;
+  // اختاروا والتسوية جارية: الإغلاق هنا كان يمحو اختياراً خاطئاً ظهر
+  // أحمرَ أمام الجميع، فتعود الخلية متاحة بسؤال جديد — هروب من الحكم
+  if (Game.picked !== null) return;
   stopTimer();
 
   const index = Game.activeCell;
@@ -643,6 +666,13 @@ let lastVerdict = null;   // حالة اللعبة قبل آخر حكم، أو n
 
 /** هل يوجد حكم يمكن التراجع عنه؟ للمقدّم وحده */
 function canUndo() { return !!lastVerdict && Online.isJudge(); }
+
+/* يُنسى آخر حكم عند ترك المباراة (إنهاء، خروج من الروم، مباراة جديدة).
+   كان يبقى، فيُرجع Ctrl+Z مباراةً أُنهيت إلى الشاشة من جديد. */
+function forgetVerdict() {
+  lastVerdict = null;
+  UI.hideUndo();
+}
 
 /**
  * يُرجع آخر حكم: الخلية تعود متاحة، والسؤال يُفتح من جديد كما كان،

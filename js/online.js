@@ -15,8 +15,12 @@
 const Online = (function () {
 
   let active = false;          // هل نحن داخل روم؟
-  let localSettingsBackup = null;
   let applying = false;        // نمنع البثّ أثناء تطبيق حالة واردة
+  // آخر إعدادات وصلت من المضيف — ما يبثّه الضيف بدل نسخته المحلية
+  let hostSettings = null;
+  // أول مزامنة بعد الدخول: المضيف العائد بعد تحديث الصفحة يأخذ إعدادات
+  // مباراته من الخادم مرة واحدة، ثم يعود هو المرجع
+  let firstSync = false;
 
   const ERRORS = {
     not_found:  'الروم ما عادت موجودة',
@@ -65,22 +69,38 @@ const Online = (function () {
      عشوائية والأسئلة مسحوبة عشوائياً، فلا يمكن لأي جهاز أن يعيد توليدها
      بنفسه ويصل لنفس النتيجة. الحقول نفسها التي يحفظها التراجع والمباراة
      المحلية — مصدر واحد في `serializeGame`. */
+  function matchSettings() {
+    // إعدادات المضيف تحكم المباراة — والثيم والصوت شأن شخصي فلا يُبثّان
+    return JSON.parse(JSON.stringify({
+      teamA: SETTINGS.teamA,
+      teamB: SETTINGS.teamB,
+      size: SETTINGS.size,
+      rounds: SETTINGS.rounds,
+      timer: SETTINGS.timer,
+      wrongRule: SETTINGS.wrongRule,
+      swapSides: SETTINGS.swapSides,
+      answerMode: SETTINGS.answerMode,
+      levelA: SETTINGS.levelA,
+      levelB: SETTINGS.levelB,
+    }));
+  }
+
+  /* ⚠️ **الضيف يبثّ إعدادات المضيف لا إعداداته.** كل دفع يستبدل الحالة كلها
+     في الجدول، فيجب أن يحمل الإعدادات — لكن كان يحمل `SETTINGS` الضيف كما
+     هي، فضيف غيّر المؤقّت أو الأسماء من شاشة الإعدادات ثم فتح خلية فرضها
+     على المضيف والجميع. */
   function snapshot() {
     return Object.assign(serializeGame(), {
-      // إعدادات المضيف تحكم المباراة — والثيم شأن شخصي فلا يُبثّ
-      settings: {
-        teamA: SETTINGS.teamA,
-        teamB: SETTINGS.teamB,
-        size: SETTINGS.size,
-        rounds: SETTINGS.rounds,
-        timer: SETTINGS.timer,
-        wrongRule: SETTINGS.wrongRule,
-        swapSides: SETTINGS.swapSides,
-        answerMode: SETTINGS.answerMode,
-        levelA: SETTINGS.levelA,
-        levelB: SETTINGS.levelB,
-      },
+      settings: Net.isHost() || !hostSettings ? matchSettings() : hostSettings,
     });
+  }
+
+  /** يأخذ إعدادات المباراة من حالة واردة — من المضيف وحده */
+  function adoptSettings(state) {
+    if (!state || !state.settings) return;
+    if (Net.isHost() && !firstSync) return;   // المضيف هو المرجع
+    hostSettings = JSON.parse(JSON.stringify(state.settings));
+    Object.assign(SETTINGS, JSON.parse(JSON.stringify(state.settings)));
   }
 
   function publish(status) {
@@ -97,7 +117,7 @@ const Online = (function () {
          في المشروع يقرأ منها (أسماء الفريقين وألوانهما وعدد الجولات…)،
          فتمريرها كنسخة موازية كان يعني تعديل ui.js كله. وعند الخروج من
          الروم نستعيد إعدادات اللاعب من التخزين — راجع `restoreSettings`. */
-      if (state.settings) Object.assign(SETTINGS, state.settings);
+      adoptSettings(state);
 
       const wasPhase = Game.phase;
       const hadOpen = Game.activeCell;
@@ -161,7 +181,10 @@ const Online = (function () {
       }
 
       if (Game.phase === 'round-over' && wasPhase !== 'round-over') UI.showRoundResult();
-      if (Game.phase === 'match-over') UI.showMatchResult();
+      /* ⚠️ مرة واحدة عند الانتقال. الاستطلاع يعيد الحالة نفسها كل أربع ثوانٍ،
+         فكان صوت الفوز يتكرّر بلا نهاية عند الجميع، ومن ذهب للرئيسية يُسحب
+         لشاشة النهاية من جديد. */
+      if (Game.phase === 'match-over' && wasPhase !== 'match-over') UI.showMatchResult();
       if (Game.phase === 'playing') UI.applyRole();
     } finally {
       applying = false;
@@ -172,13 +195,17 @@ const Online = (function () {
 
   function onRoom(room) {
     if (!room) return;
-    UI.renderRoomBar();
+    const force = firstSync;
 
     // في الردهة: لا مباراة بعد، أو أنهاها المقدّم وأرجع الجميع إليها
     if (!room.state || !room.state.phase || room.state.phase === 'idle') {
+      adoptSettings(room.state);   // أسماء الفريقين وطريقة الإجابة من المضيف
+      firstSync = false;
+      UI.renderRoomBar();
       /* ⚠️ كان الضيف ينتقل للردهة فقط إن كانت مباراته هو منتهية، فإذا
          أنهى المقدّم مباراة جارية بقي الضيف متجمّداً على لوحة قديمة. */
-      if (Game.phase !== 'idle') {
+      const leftMatch = Game.phase !== 'idle';
+      if (leftMatch) {
         stopTimer();
         Game.phase = 'idle';
         Game.activeCell = null;
@@ -187,46 +214,57 @@ const Online = (function () {
         UI.hideUndo();
       }
       UI.renderLobby();
-      if (!UI.isScreen('screen-room')) {
+      /* ننقل للردهة عند الدخول وعند انتهاء مباراة فقط. كانت تُفرض مع كل
+         استطلاع، فالمضيف الذي يفتح «إعدادات المباراة» من الردهة يُعاد
+         إليها خلال أربع ثوانٍ ولا يستطيع تغيير شيء. */
+      if ((force || leftMatch) && !UI.isScreen('screen-room')) {
         showScreen('screen-room');
         syncTabs();
       }
       return;
     }
     apply(room.state);
+    firstSync = false;
+    UI.renderRoomBar();
   }
 
   async function enter(fn, args, asHost) {
     const data = await fn.apply(null, args);
     if (data.error) { uiToast(msg(data.error)); return false; }
-    localSettingsBackup = JSON.parse(JSON.stringify(loadJSON('huroof_settings', {})));
     active = true;
+    hostSettings = null;
+    firstSync = true;
     /* الأونلاين يبدأ بالاختيارات: اللاعبون في أماكن مختلفة لا يسمعون
        بعضهم، والتصحيح الآلي هو ما يجعل اللعب ممكناً بلا مكالمة. وللمقدّم
        تبديلها من الردهة لو كانوا على مكالمة. (في الذاكرة لا التخزين —
        إعداد اللاعب المحلي يعود كما كان عند الخروج.) */
     if (asHost) SETTINGS.answerMode = 'choices';
     onRoom(data);
+    // الضيوف يرون أسماء الفريقين وطريقة الإجابة في الردهة من أول لحظة
+    if (asHost) publish('waiting');
     return true;
   }
 
+  /* إعدادات اللاعب تُستعاد من التخزين. هي سليمة فيه لأن `saveSettings` لا
+     يكتب أونلاين إلا الثيم والصوت — وهذان يبقيان كما اختارهما في الروم. */
   function restoreSettings() {
-    if (!localSettingsBackup) return;
-    Object.assign(SETTINGS, DEFAULT_SETTINGS, localSettingsBackup);
-    localSettingsBackup = null;
+    Object.assign(SETTINGS, freshDefaults(), loadJSON('huroof_settings', {}));
   }
 
   async function leave() {
     await Net.leave();
     active = false;
+    hostSettings = null;
+    firstSync = false;
     restoreSettings();
     stopTimer();
     Game.phase = 'idle';
     Game.activeCell = null;
+    forgetVerdict();
     UI.closeQuestion();
     UI.hideRoundResult();
-    UI.hideUndo();
     UI.renderRoomBar();
+    document.body.classList.remove('is-online', 'is-viewer', 'is-guest');
   }
 
   Net.onUpdate = onRoom;
