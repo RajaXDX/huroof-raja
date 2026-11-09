@@ -307,6 +307,88 @@ const UI = (function () {
     hideUndo();
   }
 
+  /* ---------------------------------------------------- مثال «كيف نلعب» */
+
+  /* لوحتان صغيرتان بالهندسة نفسها التي تُلعب عليها (`Hive.layout`)، في كل
+     واحدة مسار فائز لفريق. لوحتان لا واحدة: مساران كاملان لا يجتمعان على
+     لوحة واحدة — وهذا جوهر اللعبة أصلاً. والحروف تُرسم بلا معنى خاص. */
+  const DEMO = [
+    { team: 'A', text: '↕ من فوق لتحت', path: [[0, 1], [1, 1], [2, 1], [3, 0]], edges: 'v' },
+    { team: 'B', text: '↔ من اليمين لليسار', path: [[1, 0], [1, 1], [2, 2], [2, 3]], edges: 'h' },
+  ];
+  const DEMO_LETTERS = 'بتجدرسعفقكلمنهوي';
+
+  function renderHowtoDemo() {
+    const fig = $('howtoDemo');
+    if (!fig) return;
+    fig.innerHTML = '';
+    const rows = 4, cols = 4, w = 30, gap = 3;
+    const lay = Hive.layout(Hive.buildBoard(rows, cols), rows, cols, w, gap);
+
+    DEMO.forEach(d => {
+      const color = teamColor(d.team);
+      const on = new Set(d.path.map(([r, c]) => r * cols + c));
+      const board = el('div', { class: 'demo-board demo-' + d.edges, 'aria-hidden': 'true',
+        style: { width: lay.width + 'px', height: lay.height + 'px' } });
+      board.style.setProperty('--edge', color);   // متغيّر CSS لا يُضبط بـObject.assign
+      lay.cells.forEach(c => {
+        const mine = on.has(c.index);
+        const hex = el('div', {
+          class: 'demo-hex' + (mine ? ' mine' : ''),
+          style: { left: c.x + 'px', top: c.y + 'px', width: c.w + 'px', height: c.h + 'px' },
+        }, DEMO_LETTERS[c.index]);
+        if (mine) hex.style.setProperty('--hex-fill', color);
+        board.appendChild(hex);
+      });
+      const cap = el('figcaption', { style: { color: color } },
+        escapeHtml(teamName(d.team) + ' ' + d.text));
+      const item = el('div', { class: 'demo-item' });
+      item.appendChild(board);
+      item.appendChild(cap);
+      fig.appendChild(item);
+    });
+  }
+
+  /* ------------------------------------------------- الإبلاغ عن سؤال */
+
+  /* واتساب برسالة فيها الحرف والسؤال والإجابة فقط — لا اسم ولا فريق. */
+  function setReportLink(index) {
+    const q = Game.questions[index];
+    const btn = $('reportQBtn');
+    if (!btn) return;
+    if (!q) { btn.classList.add('hidden'); return; }
+    const text = 'بلاغ عن سؤال في صراع الحروف\n' +
+      'الحرف: ' + Game.letters[index] + '\n' +
+      'السؤال: ' + q.q + '\n' +
+      'الإجابة في اللعبة: ' + q.a + '\n' +
+      'الملاحظة: ';
+    btn.href = 'https://wa.me/' + SUPPORT_WHATSAPP + '?text=' + encodeURIComponent(text);
+  }
+  function showReport(show) { const b = $('reportQBtn'); if (b) b.classList.toggle('hidden', !show); }
+
+  /* ------------------------------------------------------- الاحتفال */
+
+  /* مسدسات ملوّنة تتساقط ثانيتين، بلا مكتبة. لا تظهر لمن طلب من جهازه
+     تقليل الحركة. والصوت مستقل: كتمه من الإعدادات يكتم صوت الفوز. */
+  function celebrate(team) {
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const old = document.querySelector('.confetti');
+    if (old) old.remove();
+    const box = el('div', { class: 'confetti', 'aria-hidden': 'true' });
+    const colors = team ? [teamColor(team), 'var(--accent)', '#fff'] : [teamColor('A'), teamColor('B'), 'var(--accent)'];
+    for (let i = 0; i < 28; i++) {
+      box.appendChild(el('i', { style: {
+        left: (Math.random() * 100) + '%',
+        background: colors[i % colors.length],
+        animationDelay: (Math.random() * 0.5) + 's',
+        animationDuration: (1.3 + Math.random() * 0.8) + 's',
+        transform: 'rotate(' + Math.round(Math.random() * 360) + 'deg)',
+      } }));
+    }
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 2800);
+  }
+
   function isQuestionOpen() { return $('questionModal').classList.contains('show'); }
   function isScreen(id) { const s = $(id); return !!s && s.classList.contains('active'); }
 
@@ -323,6 +405,8 @@ const UI = (function () {
 
     $('qAnswer').textContent = q ? q.a : '—';
     $('qAnswer').classList.add('hidden');
+    setReportLink(index);
+    showReport(false);
     $('judgeRow').classList.add('hidden');
 
     // وضع الاختيارات: أربعة أزرار بدل «اعرض الإجابة» وأزرار الحكم
@@ -372,6 +456,7 @@ const UI = (function () {
     $('qAnswer').classList.remove('hidden');
     $('revealBtn').classList.add('hidden');
     $('judgeRow').classList.remove('hidden');
+    showReport(true);
   }
 
   /** يلوّن الاختيار المضغوط والإجابة الصحيحة، ويقفل الأزرار عند الجميع */
@@ -394,6 +479,7 @@ const UI = (function () {
       : gaveUp ? 'تخطّيتم — الإجابة: ' + q.a : '✖ إجابة خاطئة — الصحيحة: ' + q.a;
     $('qHint').classList.toggle('hint-right', correct);
     $('qHint').classList.toggle('hint-wrong', !correct);
+    showReport(true);
     announce($('qHint').textContent);
   }
 
@@ -462,12 +548,14 @@ const UI = (function () {
       /* الإعلان يرسو أسفل الشاشة بلا تعتيم: كان يغطّي اللوحة فلا يرى
          أحد مسار الفوز الذي صنعه لتوّه. */
       $('roundOverlay').classList.add('show', 'docked');
+      if (w) celebrate(w);
       announce($('roundTitle').textContent);
     }, (Game.winPath ? Game.winPath.length * 110 : 0) + 900);
   }
 
   function showMatchResult() {
     $('roundOverlay').classList.remove('show');
+    hideUndo();   // شريط «تراجع» يخصّ اللوحة، لا شاشة النهاية
     showScreen('screen-end');
     syncTabs();
 
@@ -489,6 +577,7 @@ const UI = (function () {
       '<span class="end-dash">—</span>' +
       '<span style="color:' + teamColor('B') + '">' + b + ' ' + escapeHtml(SETTINGS.teamB.name) + '</span>';
 
+    celebrate(w);
     Sound.win();
   }
 
@@ -532,6 +621,11 @@ const UI = (function () {
       (Net.isHost() ? 'المقدّم · ' : '') +
       (team ? teamName(team) : 'مشاهد');
     $('roomBarRole').style.color = team ? teamColor(team) : 'var(--muted)';
+
+    // حالة الاتصال: نقطة خضراء، أو تنبيه صريح عند الانقطاع
+    const ok = Net.linked();
+    $('roomBarNet').textContent = ok ? '● متصل' : '● انقطع — نعيد المحاولة';
+    $('roomBarNet').classList.toggle('is-down', !ok);
   }
 
   function renderLobby() {
@@ -618,6 +712,7 @@ const UI = (function () {
     renderBoard, renderStatus, renderRound, paintCell, highlightPath,
     openQuestion, showAnswer, showPick, closeQuestion, updateTimer,
     showRoundResult, hideRoundResult, suspendOverlays, showMatchResult,
+    renderHowtoDemo, celebrate,
     applyRole, renderLobby, renderRoomBar,
     flashVerdict, offerUndo, hideUndo, banner,
     isQuestionOpen, isScreen,

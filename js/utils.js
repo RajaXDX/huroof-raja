@@ -180,3 +180,6 @@ function uiConfirm(message, okText = 'نعم', cancelText = 'إلغاء') {
     setTimeout(() => box.querySelector('[data-act="ok"]').focus(), 60);
   });
 }
+
+/** رقم الدعم (واتساب) — بصيغة دولية بلا + ولا أصفار، كما يطلبه wa.me */
+const SUPPORT_WHATSAPP = '966505746512';

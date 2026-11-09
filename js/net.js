@@ -52,6 +52,22 @@ const Net = (function () {
 
   let onUpdate = () => {};
   let onError  = () => {};
+  let onLink   = () => {};
+
+  /* ---------------------------------------------------- حالة الاتصال */
+
+  /* نداءان متتاليان فشلا بالشبكة = انقطاع. نداء واحد قد يفشل لمرور عابر
+     فلا نُقلق اللاعب به. وأول نداء ينجح بعدها يعيد الحالة. */
+  let linkOk = true;
+  let failures = 0;
+  function setLink(ok) {
+    failures = ok ? 0 : failures + 1;
+    const next = ok || failures < 2;
+    if (!navigator.onLine) { if (linkOk) { linkOk = false; onLink(false); } return; }
+    if (next !== linkOk) { linkOk = next; onLink(next); }
+  }
+  window.addEventListener('offline', () => { failures = 2; if (linkOk) { linkOk = false; onLink(false); } });
+  window.addEventListener('online',  () => { if (room && room.code) poll(true); });
 
   /* ---------------------------------------------------------- الهوية */
 
@@ -113,11 +129,15 @@ const Net = (function () {
       const { data, error } = await supa.rpc(fn, args);
       if (error) {
         console.error('RPC ' + fn + ':', error.message);
-        return { error: /function|schema cache/i.test(error.message) ? 'no_schema' : 'network' };
+        const kind = /function|schema cache/i.test(error.message) ? 'no_schema' : 'network';
+        if (kind === 'network') setLink(false);
+        return { error: kind };
       }
+      setLink(true);
       return data || { error: 'empty' };
     } catch (e) {
       console.error('RPC ' + fn + ' استثناء:', e);
+      setLink(false);
       return { error: 'network' };
     }
   }
@@ -307,6 +327,7 @@ const Net = (function () {
     savedName, rememberName, savedSession, forgetSession,
 
     isOnline() { return !!(room && room.code); },
+    linked()   { return linkOk; },
     room()     { return room; },
     seat()     { return seat; },
     isHost()   { return seat === 0; },
@@ -318,5 +339,6 @@ const Net = (function () {
 
     set onUpdate(fn) { onUpdate = fn; },
     set onError(fn)  { onError = fn; },
+    set onLink(fn)   { onLink = fn; },
   };
 })();

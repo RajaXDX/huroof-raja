@@ -269,6 +269,11 @@ const Online = (function () {
 
   Net.onUpdate = onRoom;
   Net.onError = code => { uiToast(msg(code)); leave().then(goHome); };
+  // انقطاع الشبكة وعودتها: شارة في شريط الروم، وتنبيه مرة عند كل تغيّر
+  Net.onLink = ok => {
+    UI.renderRoomBar();
+    if (active) uiToast(ok ? 'عاد الاتصال ✓' : 'انقطع الاتصال — نحاول من جديد…');
+  };
 
   /* --------------------------------------------------------- الواجهة */
 

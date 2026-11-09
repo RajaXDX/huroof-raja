@@ -887,3 +887,80 @@ body.is-guest .quit-btn { display: none; }
 /* الخطف في وضع الاختيارات: خارج صف الحكم فيأخذ العرض كاملاً، ومخفي عن غير المقدّم */
 .btn-steal-mc { width: 100%; margin-top: 10px; min-height: 48px; }
 .q-overlay.role-viewer #awardOtherMcBtn { display: none !important; }
+
+/* ============================================================
+   صقل 1.1 — مثال «كيف نلعب»، البلاغ، الاحتفال، المشاركة، الاتصال
+   ============================================================ */
+
+/* مثال «كيف نلعب»: لوحتان صغيرتان، في كل واحدة مسار فائز وحافّتا فريقه */
+.howto-demo {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 22px;
+  margin: 14px 0 4px; padding: 0;
+}
+.demo-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.demo-item figcaption { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 13px; }
+.demo-board { position: relative; margin: 6px; direction: ltr; }
+/* حافّتا الاتجاه بلون الفريق — كأشرطة حواف اللوحة الحقيقية */
+.demo-board::before, .demo-board::after {
+  content: ''; position: absolute; background: var(--edge); border-radius: 3px; opacity: .9;
+}
+.demo-v::before { left: 0; right: 0; top: -7px; height: 4px; }
+.demo-v::after  { left: 0; right: 0; bottom: -7px; height: 4px; }
+.demo-h::before { top: 0; bottom: 0; left: -7px; width: 4px; }
+.demo-h::after  { top: 0; bottom: 0; right: -7px; width: 4px; }
+.demo-hex {
+  position: absolute; display: grid; place-items: center;
+  background: var(--cell); color: var(--cell-text);
+  font-family: 'Cairo', sans-serif; font-weight: 900; font-size: 12px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.demo-hex.mine { background: var(--hex-fill); color: var(--on-accent); }
+
+/* رابط البلاغ عن سؤال: خفيف تحت أزرار السؤال، ولا يزاحم الحكم */
+.q-report {
+  display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px;
+  font-size: 13px; color: var(--muted); text-decoration: none;
+}
+.q-report:hover, .q-report:focus-visible { color: var(--accent); text-decoration: underline; }
+.q-report.hidden { display: none; }
+
+/* مشاركة النتيجة في شاشة النهاية */
+.end-share { min-height: 44px; margin: 6px auto 10px; display: block; padding-inline: 22px; }
+
+/* حالة الاتصال في شريط الروم */
+.rb-net { font-size: 12px; color: #4ADE80; white-space: nowrap; }
+.rb-net.is-down { color: #F87171; font-weight: 800; }
+
+/* حقل اسم مرفوض (اسمان متطابقان) */
+input[aria-invalid="true"] { outline: 2px solid #F87171; outline-offset: 2px; }
+
+/* الاحتفال: مسدسات تتساقط فوق كل شيء ولا تلتقط اللمس */
+.confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 400; }
+.confetti i {
+  position: absolute; top: -24px; width: 14px; height: 16px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  animation: confettiFall 1.6s ease-in forwards;
+}
+@keyframes confettiFall {
+  to { top: 105vh; opacity: .2; }
+}
+
+/* من طلب من جهازه تقليل الحركة: لا نبض ولا قفز ولا تساقط — الحالة تبقى
+   ظاهرة بالألوان والحدود، لكن بلا حركة. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .confetti { display: none; }
+}
+
+/* اسم اللعبة كان ما يزال يُقصّ («صراع الحرو…») على 375px: التبويبات
+   الثلاثة تأخذ المساحة. نضغطها قليلاً حتى يظهر الاسم كاملاً. */
+@media (max-width: 420px) {
+  .brand { gap: 8px; }
+  .tabs { gap: 2px; padding: 4px; }
+  .tab { padding: 8px 9px; }
+}

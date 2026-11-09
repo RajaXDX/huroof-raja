@@ -22,8 +22,8 @@
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- الخطوط محزومة محلياً لا من Google — اللعبة يجب أن تعمل بلا إنترنت -->
-  <link rel="stylesheet" href="css/fonts.css?v=17">
-  <link rel="stylesheet" href="css/style.css?v=17">
+  <link rel="stylesheet" href="css/fonts.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
 
@@ -49,6 +49,7 @@
 <div class="room-bar hidden" id="roomBar">
   <span class="rb-code">روم <b id="roomBarCode"></b></span>
   <span class="rb-role" id="roomBarRole"></span>
+  <span class="rb-net" id="roomBarNet" role="status" aria-live="polite"></span>
   <button class="btn-text rb-exit" onclick="leaveRoom()">خروج</button>
 </div>
 
@@ -121,7 +122,7 @@
         <span class="rule-num">١</span>
         <div>
           <b>اللوحة</b>
-          <p>خلية من مسدسات، في كل مسدس حرف. ترتيب الحروف يتغيّر عشوائياً في كل جولة.</p>
+          <p>لوحة من خلايا سداسية، في كل خلية حرف. ترتيب الحروف يتغيّر عشوائياً في كل جولة.</p>
         </div>
       </div>
       <div class="rule">
@@ -130,14 +131,17 @@
           <b>الهدف</b>
           <p>فريق يبني سلسلة متّصلة من <b>أعلى اللوحة إلى أسفلها</b>، والآخر
              من <b>اليمين إلى اليسار</b>. أول من يكمل سلسلته يفوز بالجولة.
-             الأشرطة الملوّنة على الحواف تبيّن اتجاه كل فريق.</p>
+             الأشرطة الملوّنة على الحواف تبيّن اتجاه كل فريق. والخلية تتصل
+             بكل خلية تلامسها من أضلاعها الستة.</p>
+          <!-- مثال مرسوم: تبنيه ui.js بالشبكة نفسها التي تُلعب عليها -->
+          <figure class="howto-demo" id="howtoDemo" aria-label="مثال: مسار فائز لكل فريق"></figure>
         </div>
       </div>
       <div class="rule">
         <span class="rule-num">٣</span>
         <div>
           <b>السؤال</b>
-          <p>صاحب الدور يختار أي مسدس فارغ، فيظهر سؤال إجابته تبدأ بذلك الحرف.
+          <p>الفريق صاحب الدور يختار أي خلية فارغة، فيظهر سؤال إجابته تبدأ بحرفها.
              في وضع <b>الاختيارات</b> تظهر أربع إجابات يضغط الفريق واحدة منها
              وتُصحَّح تلقائياً، ومن لا يعرف يضغط «لا نعرف». وفي وضع <b>المقدّم
              يحكم</b> يجيبون بصوت عالٍ، ثم يُضغط «اعرض الإجابة» ويُحكم: صح أم خطأ.
@@ -148,7 +152,7 @@
         <span class="rule-num">٤</span>
         <div>
           <b>نتيجة الإجابة</b>
-          <p>الصحيحة تجعل المسدس ملكاً للفريق. والخاطئة حسب إعدادك:
+          <p>الصحيحة تجعل الخلية ملكاً للفريق. والخاطئة حسب إعدادك:
              تذهب للفريق الآخر، أو تُقفل للطرفين، أو تبقى متاحة. وحكم بالخطأ
              يُصحَّح بـ«تراجع» بعده مباشرة.</p>
         </div>
@@ -157,7 +161,7 @@
         <span class="rule-num">٥</span>
         <div>
           <b>تبديل الاتجاهات</b>
-          <p>اللوحة المربعة تعطي الاتجاه العمودي أفضلية نحو ٣٪ لأن المسدسات
+          <p>اللوحة المربعة تعطي الاتجاه العمودي أفضلية نحو ٣٪ لأن الخلايا
              تتداخل رأسياً. لذلك يتبادل الفريقان الاتجاهين كل جولة، والجولة
              الحاسمة تُحسم اتجاهاتها بقرعة. يمكن إيقافه من الإعدادات.</p>
         </div>
@@ -437,6 +441,7 @@
     <div class="end-icon" id="endIcon">🏆</div>
     <h2 class="end-title" id="endTitle">الفائز</h2>
     <div class="end-score" id="endScore"></div>
+    <button class="btn btn-ghost end-share" id="shareResultBtn" onclick="shareResult()">↗ شارك النتيجة</button>
     <div class="nav">
       <button class="btn btn-primary" onclick="newMatch()">مباراة جديدة</button>
       <button class="btn btn-ghost" onclick="goSetup()">الإعدادات</button>
@@ -486,6 +491,10 @@
       <button class="btn-text" onclick="replaceQuestion()">↻ سؤال آخر</button>
       <button class="btn-text" onclick="cancelQuestion()">أغلق بلا حكم</button>
     </div>
+
+    <!-- يظهر بعد ظهور الإجابة: يفتح واتساب برسالة فيها السؤال وحده، بلا أي
+         بيانات عن اللاعب. رابط لا زرّ: التطبيق يفتح الروابط الخارجية خارجه. -->
+    <a class="q-report hidden" id="reportQBtn" target="_blank" rel="noopener">⚑ في السؤال خطأ؟ بلّغنا</a>
   </div>
 </div>
 
@@ -518,15 +527,15 @@
 </div>
 
 
-<script src="js/themes.js?v=17"></script>
-<script src="js/utils.js?v=17"></script>
-<script src="js/hive.js?v=17"></script>
-<script src="js/game.js?v=17"></script>
-<script src="js/ui.js?v=17"></script>
+<script src="js/themes.js?v=18"></script>
+<script src="js/utils.js?v=18"></script>
+<script src="js/hive.js?v=18"></script>
+<script src="js/game.js?v=18"></script>
+<script src="js/ui.js?v=18"></script>
 <!-- net قبل online: الأخير يسجّل مستمعيه على الأول لحظة التحميل -->
-<script src="js/net.js?v=17"></script>
-<script src="js/online.js?v=17"></script>
-<script src="js/setup.js?v=17"></script>
+<script src="js/net.js?v=18"></script>
+<script src="js/online.js?v=18"></script>
+<script src="js/setup.js?v=18"></script>
 
 <script>
 /* تسجيل عامل الخدمة — يخزّن اللعبة على الجهاز فتعمل بلا إنترنت.

@@ -605,6 +605,81 @@ const FRESH = "Game.phase='idle'; beginMatch();";
     }
   }
 
+  /* ----------------------------------------- صقل 1.1: موجز التطوير */
+  console.log('\n— الشرح والبلاغ والمشاركة والاتصال');
+  const polish = await page.evaluate(async () => {
+    const out = {};
+    // «كيف نلعب»: «خلية» لا «مسدس»، ومثال مرسوم بمسار متّصل لكل فريق
+    out.noMusaddas = !document.getElementById('screen-howto').textContent.includes('مسدس');
+    goHowTo();
+    const boards = [...document.querySelectorAll('#howtoDemo .demo-board')];
+    out.demoBoards = boards.length;
+    // المسار متّصل فعلاً ويصل حافّتيه — بمنطق اللعبة نفسه لا بالعين
+    const cells = Hive.buildBoard(4, 4);
+    out.demoPathsWin = boards.map((b, k) => {
+      const owners = [...b.querySelectorAll('.demo-hex')].map(h => h.classList.contains('mine') ? 'X' : null);
+      return !!Hive.findWinningPath(cells, owners, 'X', k === 0 ? 'vertical' : 'horizontal', 4, 4);
+    });
+
+    // البلاغ: مخفي قبل الإجابة، وبعدها رابط واتساب بالسؤال وحده
+    SETTINGS.answerMode = 'host';
+    Game.phase = 'idle'; await beginMatch();
+    selectCell(0);
+    const btn = document.getElementById('reportQBtn');
+    out.reportHidden = btn.classList.contains('hidden');
+    revealAnswer();
+    const text = decodeURIComponent(btn.href.split('text=')[1] || '');
+    out.reportShown = !btn.classList.contains('hidden');
+    out.reportOk = btn.href.startsWith('https://wa.me/' + SUPPORT_WHATSAPP) &&
+      text.includes(Game.questions[0].q) && !text.includes(SETTINGS.teamA.name);
+    cancelQuestion();
+
+    // اسمان متطابقان لا يبدآن مباراة
+    goSetup();
+    const keepA = SETTINGS.teamA.name, keepB = SETTINGS.teamB.name;
+    document.getElementById('inputNameA').value = 'النجوم';
+    document.getElementById('inputNameB').value = 'النجوم';
+    Game.phase = 'idle';
+    await beginMatch();
+    out.sameNames = Game.phase === 'idle';
+    document.getElementById('inputNameA').value = keepA;
+    document.getElementById('inputNameB').value = keepB;
+    commitNames();
+
+    // المشاركة تحمل النتيجة، والاحتفال يظهر ويختفي
+    let shared = '';
+    const realShare = navigator.share;
+    navigator.share = d => { shared = d.text; return Promise.resolve(); };
+    Game.wins = { A: 2, B: 1 };
+    shareResult();
+    navigator.share = realShare;
+    out.share = shared.includes(keepA + ' 2') && shared.includes('1 ' + keepB);
+    UI.celebrate('A');
+    out.confetti = document.querySelectorAll('.confetti i').length > 0;
+
+    // تقليل الحركة: قاعدة CSS موجودة فعلاً في الصفحة
+    out.reducedMotion = [...document.styleSheets].some(s => {
+      try { return [...s.cssRules].some(r => r.media && /prefers-reduced-motion/.test(r.media.mediaText)); }
+      catch (e) { return false; }
+    });
+
+    // حالة الاتصال مكشوفة للواجهة
+    out.linkApi = typeof Net.linked === 'function' && Net.linked() === true;
+    Game.phase = 'idle';
+    goHome();
+    return out;
+  });
+  check('«كيف نلعب» بلا لفظ «مسدس»', polish.noMusaddas);
+  check('مثال «كيف نلعب»: لوحتان، ومسار كل منهما فائز فعلاً',
+    polish.demoBoards === 2 && polish.demoPathsWin.every(Boolean), JSON.stringify(polish.demoPathsWin));
+  check('البلاغ مخفي قبل الإجابة ويظهر بعدها', polish.reportHidden && polish.reportShown);
+  check('البلاغ يفتح واتساب بالسؤال وحده بلا اسم فريق', polish.reportOk);
+  check('اسمان متطابقان لا يبدآن مباراة', polish.sameNames);
+  check('مشاركة النتيجة تحمل الأسماء والنتيجة', polish.share);
+  check('الاحتفال يظهر', polish.confetti);
+  check('قاعدة «تقليل الحركة» موجودة', polish.reducedMotion);
+  check('حالة الاتصال متاحة للواجهة', polish.linkApi);
+
   await browser.close();
 
   console.log(`\n${pass} نجح · ${fail} فشل`);
