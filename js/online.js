@@ -15,8 +15,12 @@
 const Online = (function () {
 
   let active = false;          // هل نحن داخل روم؟
-  let localSettingsBackup = null;
   let applying = false;        // نمنع البثّ أثناء تطبيق حالة واردة
+  // آخر إعدادات وصلت من المضيف — ما يبثّه الضيف بدل نسخته المحلية
+  let hostSettings = null;
+  // أول مزامنة بعد الدخول: المضيف العائد بعد تحديث الصفحة يأخذ إعدادات
+  // مباراته من الخادم مرة واحدة، ثم يعود هو المرجع
+  let firstSync = false;
 
   const ERRORS = {
     not_found:  'الروم ما عادت موجودة',
@@ -38,10 +42,18 @@ const Online = (function () {
   /* المضيف: يبدأ المباراة، ويكشف الإجابة، ويحكم، وينقل الجولة */
   function isJudge() { return !active || Net.isHost(); }
 
-  /* اختيار خلية: أي لاعب في الفريق صاحب الدور. وفي المحلي الجميع. */
+  /* اختيار خلية: أي لاعب في الفريق صاحب الدور. وفي المحلي الجميع.
+     ⚠️ والمضيف أيضاً حين يخلو الفريق صاحب الدور من لاعب متصل — خرج آخر
+     لاعبيه أو انقطع. بلا هذا تتجمّد المباراة: الدور لفريق لا أحد فيه
+     يستطيع الضغط، ولا أحد غيره مسموح له. */
+  function turnTeamIsEmpty() {
+    return !Net.teamMembers(Game.turn).some(p => p.online !== false);
+  }
+
   function canPick() {
     if (!active) return true;
-    return Net.myTeam() === Game.turn;
+    if (Net.myTeam() === Game.turn) return true;
+    return Net.isHost() && turnTeamIsEmpty();
   }
 
   function whyCannotPick() {
@@ -53,39 +65,42 @@ const Online = (function () {
 
   /* ----------------------------------------------- الحالة المُتبادَلة */
 
-  /* ⚠️ لا نبثّ `timerId` (مؤقّت محلي لا معنى له عند غيرك) ولا `timeLeft`
-     (يُشتقّ من `deadline`). والباقي كله يُبثّ لأن اللوحة يجب أن تكون
-     **نفسها** عند الجميع: الحروف عشوائية والأسئلة مسحوبة عشوائياً، فلا
-     يمكن لأي جهاز أن يعيد توليدها بنفسه ويصل لنفس النتيجة. */
+  /* الحالة كلها تُبثّ لأن اللوحة يجب أن تكون **نفسها** عند الجميع: الحروف
+     عشوائية والأسئلة مسحوبة عشوائياً، فلا يمكن لأي جهاز أن يعيد توليدها
+     بنفسه ويصل لنفس النتيجة. الحقول نفسها التي يحفظها التراجع والمباراة
+     المحلية — مصدر واحد في `serializeGame`. */
+  function matchSettings() {
+    // إعدادات المضيف تحكم المباراة — والثيم والصوت شأن شخصي فلا يُبثّان
+    return JSON.parse(JSON.stringify({
+      teamA: SETTINGS.teamA,
+      teamB: SETTINGS.teamB,
+      size: SETTINGS.size,
+      rounds: SETTINGS.rounds,
+      timer: SETTINGS.timer,
+      wrongRule: SETTINGS.wrongRule,
+      swapSides: SETTINGS.swapSides,
+      answerMode: SETTINGS.answerMode,
+      levelA: SETTINGS.levelA,
+      levelB: SETTINGS.levelB,
+    }));
+  }
+
+  /* ⚠️ **الضيف يبثّ إعدادات المضيف لا إعداداته.** كل دفع يستبدل الحالة كلها
+     في الجدول، فيجب أن يحمل الإعدادات — لكن كان يحمل `SETTINGS` الضيف كما
+     هي، فضيف غيّر المؤقّت أو الأسماء من شاشة الإعدادات ثم فتح خلية فرضها
+     على المضيف والجميع. */
   function snapshot() {
-    return {
-      phase: Game.phase,
-      round: Game.round,
-      wins: Game.wins,
-      rows: Game.rows,
-      cols: Game.cols,
-      cells: Game.cells,
-      owners: Game.owners,
-      letters: Game.letters,
-      questions: Game.questions,
-      axis: Game.axis,
-      turn: Game.turn,
-      activeCell: Game.activeCell,
-      answerShown: Game.answerShown,
-      winner: Game.winner,
-      winPath: Game.winPath,
-      deadline: Game.deadline || 0,
-      // إعدادات المضيف تحكم المباراة — والثيم شأن شخصي فلا يُبثّ
-      settings: {
-        teamA: SETTINGS.teamA,
-        teamB: SETTINGS.teamB,
-        size: SETTINGS.size,
-        rounds: SETTINGS.rounds,
-        timer: SETTINGS.timer,
-        wrongRule: SETTINGS.wrongRule,
-        swapSides: SETTINGS.swapSides,
-      },
-    };
+    return Object.assign(serializeGame(), {
+      settings: Net.isHost() || !hostSettings ? matchSettings() : hostSettings,
+    });
+  }
+
+  /** يأخذ إعدادات المباراة من حالة واردة — من المضيف وحده */
+  function adoptSettings(state) {
+    if (!state || !state.settings) return;
+    if (Net.isHost() && !firstSync) return;   // المضيف هو المرجع
+    hostSettings = JSON.parse(JSON.stringify(state.settings));
+    Object.assign(SETTINGS, JSON.parse(JSON.stringify(state.settings)));
   }
 
   function publish(status) {
@@ -102,43 +117,74 @@ const Online = (function () {
          في المشروع يقرأ منها (أسماء الفريقين وألوانهما وعدد الجولات…)،
          فتمريرها كنسخة موازية كان يعني تعديل ui.js كله. وعند الخروج من
          الروم نستعيد إعدادات اللاعب من التخزين — راجع `restoreSettings`. */
-      if (state.settings) Object.assign(SETTINGS, state.settings);
+      adoptSettings(state);
 
       const wasPhase = Game.phase;
       const hadOpen = Game.activeCell;
+      const hadQuestion = hadOpen !== null && Game.questions[hadOpen] ? Game.questions[hadOpen].q : null;
+      const oldOwners = (Game.owners || []).slice();
+      const oldTurn = Game.turn;
+      const sameRound = Game.round === state.round && Game.cells.length === (state.cells || []).length;
 
-      Object.assign(Game, {
-        phase: state.phase, round: state.round, wins: state.wins,
-        rows: state.rows, cols: state.cols, cells: state.cells,
-        owners: state.owners, letters: state.letters, questions: state.questions,
-        axis: state.axis, turn: state.turn, activeCell: state.activeCell,
-        answerShown: state.answerShown, winner: state.winner, winPath: state.winPath,
-        deadline: state.deadline || 0,
-      });
+      restoreGame(state);
+
+      // كل سؤال يُعرض يُحفظ عند كل جهاز — فذاكرة الأسئلة واحدة في الروم
+      if (Game.activeCell !== null) markSeen(Game.questions[Game.activeCell]);
 
       if (Game.phase === 'playing' || Game.phase === 'round-over') {
-        // إعادة بناء اللوحة فقط عند تغيّر الجولة — وإلا وميض في كل بثّ
-        const boardChanged = wasPhase === 'idle' || Game.round !== apply._round ||
+        /* إعادة بناء اللوحة عند تغيّر الجولة — وإلا وميض في كل بثّ.
+           وعند الرجوع من «انتهت الجولة» إلى اللعب: تراجع المقدّم عن الحكم
+           الحاسم، فيجب أن يختفي إبراز مسار الفوز والإعلان معاً. */
+        const undone = wasPhase === 'round-over' && Game.phase === 'playing';
+        const boardChanged = wasPhase === 'idle' || Game.round !== apply._round || undone ||
                              document.querySelectorAll('.hex').length !== Game.cells.length;
         apply._round = Game.round;
 
+        if (undone) UI.hideRoundResult();
         if (boardChanged) UI.renderRound();
         else { Game.owners.forEach((_, i) => UI.paintCell(i)); UI.renderStatus(); }
+
+        // من أخذ الخلية؟ يُعلَن عند المشاهدين كما عند المقدّم
+        if (sameRound && !undone) {
+          Game.owners.forEach((o, i) => {
+            if (o !== oldOwners[i] && oldOwners[i] === null && o !== null) {
+              UI.flashVerdict(i, o, oldTurn);
+            }
+          });
+        }
       }
 
       // نافذة السؤال تتبع `activeCell` عند الجميع
       if (Game.activeCell !== null) {
-        UI.openQuestion(Game.activeCell);
+        const q = Game.questions[Game.activeCell];
+        const reopened = hadOpen !== Game.activeCell || !q || q.q !== hadQuestion;
+        if (reopened || !UI.isQuestionOpen()) {
+          UI.openQuestion(Game.activeCell);
+        }
         if (Game.answerShown) UI.showAnswer();
         UI.applyRole();
-        startTimer();
+        if (Game.picked !== null) {
+          // ضيف اختار: الجميع يرى النتيجة، والمقدّم وحده يسوّيها
+          stopTimer();
+          UI.showPick();
+          settlePick();
+        } else if (Game.answerShown || !Game.deadline) {
+          // الإجابة كُشفت: الساعة توقّفت عند المقدّم، فتتوقّف هنا أيضاً
+          stopTimer();
+          UI.updateTimer(null);
+        } else {
+          startTimer();
+        }
       } else if (hadOpen !== null) {
         stopTimer();
         UI.closeQuestion();
       }
 
       if (Game.phase === 'round-over' && wasPhase !== 'round-over') UI.showRoundResult();
-      if (Game.phase === 'match-over') UI.showMatchResult();
+      /* ⚠️ مرة واحدة عند الانتقال. الاستطلاع يعيد الحالة نفسها كل أربع ثوانٍ،
+         فكان صوت الفوز يتكرّر بلا نهاية عند الجميع، ومن ذهب للرئيسية يُسحب
+         لشاشة النهاية من جديد. */
+      if (Game.phase === 'match-over' && wasPhase !== 'match-over') UI.showMatchResult();
       if (Game.phase === 'playing') UI.applyRole();
     } finally {
       applying = false;
@@ -149,46 +195,76 @@ const Online = (function () {
 
   function onRoom(room) {
     if (!room) return;
-    UI.renderRoomBar();
+    const force = firstSync;
 
-    // ما زلنا في الردهة: لا مباراة بعد
+    // في الردهة: لا مباراة بعد، أو أنهاها المقدّم وأرجع الجميع إليها
     if (!room.state || !room.state.phase || room.state.phase === 'idle') {
+      adoptSettings(room.state);   // أسماء الفريقين وطريقة الإجابة من المضيف
+      firstSync = false;
+      UI.renderRoomBar();
+      /* ⚠️ كان الضيف ينتقل للردهة فقط إن كانت مباراته هو منتهية، فإذا
+         أنهى المقدّم مباراة جارية بقي الضيف متجمّداً على لوحة قديمة. */
+      const leftMatch = Game.phase !== 'idle';
+      if (leftMatch) {
+        stopTimer();
+        Game.phase = 'idle';
+        Game.activeCell = null;
+        UI.closeQuestion();
+        UI.hideRoundResult();
+        UI.hideUndo();
+      }
       UI.renderLobby();
-      if (!document.getElementById('screen-room').classList.contains('active') &&
-          Game.phase === 'idle') {
+      /* ننقل للردهة عند الدخول وعند انتهاء مباراة فقط. كانت تُفرض مع كل
+         استطلاع، فالمضيف الذي يفتح «إعدادات المباراة» من الردهة يُعاد
+         إليها خلال أربع ثوانٍ ولا يستطيع تغيير شيء. */
+      if ((force || leftMatch) && !UI.isScreen('screen-room')) {
         showScreen('screen-room');
         syncTabs();
       }
       return;
     }
     apply(room.state);
+    firstSync = false;
+    UI.renderRoomBar();
   }
 
-  async function enter(fn, args) {
+  async function enter(fn, args, asHost) {
     const data = await fn.apply(null, args);
     if (data.error) { uiToast(msg(data.error)); return false; }
-    localSettingsBackup = JSON.parse(JSON.stringify(loadJSON('huroof_settings', {})));
     active = true;
+    hostSettings = null;
+    firstSync = true;
+    /* الأونلاين يبدأ بالاختيارات: اللاعبون في أماكن مختلفة لا يسمعون
+       بعضهم، والتصحيح الآلي هو ما يجعل اللعب ممكناً بلا مكالمة. وللمقدّم
+       تبديلها من الردهة لو كانوا على مكالمة. (في الذاكرة لا التخزين —
+       إعداد اللاعب المحلي يعود كما كان عند الخروج.) */
+    if (asHost) SETTINGS.answerMode = 'choices';
     onRoom(data);
+    // الضيوف يرون أسماء الفريقين وطريقة الإجابة في الردهة من أول لحظة
+    if (asHost) publish('waiting');
     return true;
   }
 
+  /* إعدادات اللاعب تُستعاد من التخزين. هي سليمة فيه لأن `saveSettings` لا
+     يكتب أونلاين إلا الثيم والصوت — وهذان يبقيان كما اختارهما في الروم. */
   function restoreSettings() {
-    if (!localSettingsBackup) return;
-    Object.assign(SETTINGS, DEFAULT_SETTINGS, localSettingsBackup);
-    localSettingsBackup = null;
+    Object.assign(SETTINGS, freshDefaults(), loadJSON('huroof_settings', {}));
   }
 
   async function leave() {
     await Net.leave();
     active = false;
+    hostSettings = null;
+    firstSync = false;
     restoreSettings();
     stopTimer();
     Game.phase = 'idle';
     Game.activeCell = null;
+    forgetVerdict();
     UI.closeQuestion();
-    document.getElementById('roundOverlay').classList.remove('show');
+    UI.hideRoundResult();
     UI.renderRoomBar();
+    document.body.classList.remove('is-online', 'is-viewer', 'is-guest');
   }
 
   Net.onUpdate = onRoom;
@@ -200,7 +276,7 @@ const Online = (function () {
     active()  { return active; },
     isJudge, canPick, whyCannotPick, publish, apply, msg, leave,
 
-    async create(name) { return enter(Net.createRoom, [name]); },
+    async create(name) { return enter(Net.createRoom, [name], true); },
     async join(code, name) { return enter(Net.joinRoom, [code, name]); },
     async resume(code) { return enter(Net.resume, [code]); },
   };
