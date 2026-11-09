@@ -234,7 +234,7 @@ function toggleSound() {
    مغادرتها، والضغط عليهما هناك يقفز باللاعب إلى لوحة لم يطلبها. كل خروج
    من اللوحة يُخفيهما، و`goBoard` يعيد إعلان الجولة. */
 function goHome()  { Sound.click(); UI.suspendOverlays(); showScreen('screen-home'); syncTabs(); refreshResumeBox(); refreshLocalResume(); }
-function goHowTo() { Sound.click(); UI.suspendOverlays(); showScreen('screen-howto'); syncTabs(); }
+function goHowTo() { Sound.click(); UI.suspendOverlays(); showScreen('screen-howto'); UI.renderHowtoDemo(); syncTabs(); }
 
 function goSetup() {
   Sound.click();
@@ -303,7 +303,19 @@ async function beginMatch() {
   if (matchRunning() && Online.isJudge() &&
       !(await uiConfirm('عندكم مباراة جارية. تبدؤون مباراة جديدة وتُمسح؟'))) return;
   // الحقلان لا يعكسان SETTINGS إلا في شاشة الإعدادات (رُسما عند آخر فتح لها)
-  if (UI.isScreen('screen-setup')) commitNames();
+  if (UI.isScreen('screen-setup')) {
+    commitNames();
+    /* اسمان متطابقان يجعلان «دور الفريق…» والنتيجة بلا معنى. نوقف البدء
+       ونشير إلى الحقل الثاني بدل أن يكتشفوها في منتصف الجولة. */
+    if (normalizeAnswer(SETTINGS.teamA.name) === normalizeAnswer(SETTINGS.teamB.name)) {
+      const f = $('inputNameB');
+      f.setAttribute('aria-invalid', 'true');
+      f.focus();
+      uiToast('اسم الفريقين متطابق — غيّر أحدهما');
+      return;
+    }
+    $('inputNameB').removeAttribute('aria-invalid');
+  }
   startMatch();
 }
 
@@ -512,6 +524,27 @@ function shareRoom() {
     return;
   }
   window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+/* مشاركة نتيجة المباراة. يضغطها اللاعب بنفسه، فالأسماء فيها باختياره.
+   بلا مشاركة نظامية: ننسخ النص ونقول ذلك. */
+function shareResult() {
+  const a = Game.wins.A, b = Game.wins.B;
+  const head = a === b ? 'تعادلنا في صراع الحروف 🤝'
+    : 'فاز «' + teamName(a > b ? 'A' : 'B') + '» في صراع الحروف 🏆';
+  const text = [
+    head,
+    SETTINGS.teamA.name + ' ' + a + ' — ' + b + ' ' + SETTINGS.teamB.name,
+    'العبوها: https://rajaxdx.github.io/huroof-raja/',
+  ].join(String.fromCharCode(10));
+  if (navigator.share) {
+    navigator.share({ title: 'صراع الحروف', text: text }).catch(() => {});
+    return;
+  }
+  const done = () => uiToast('نُسخت النتيجة — الصقها حيث تشاء');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => uiToast(text));
+  } else uiToast(text);
 }
 
 function refreshResumeBox() {
